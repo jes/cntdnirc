@@ -373,7 +373,7 @@ sub begin_letters_word {
 
     $self->say(
         address => 1,
-        who => $self->{game}{players}[$self->{game}{player_answerer}],
+        who => $self->{game}{player_answerer},
         channel => $self->channel,
         body => "what is your $self->{game}{letters_answers}[$self->{game}{player_answer_idx}]-letter word?",
     );
@@ -385,7 +385,7 @@ sub begin_letters_words {
     # ask the player with the fewest letters first
     # TODO:  test all the stuff that involves multiplayer better
     $self->{game}{player_answer_order} = [sort {
-        $self->{game}{letters_answers}{$a} <=> $self->{game}{letters_answers}{$b}
+        $self->{game}{letters_answers}[$a] <=> $self->{game}{letters_answers}[$b]
     } (0 .. @{ $self->{game}{players} }-1)];
 
     $self->set_state('letters_word');
