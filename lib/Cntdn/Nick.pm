@@ -18,7 +18,8 @@ my @consonants = split //, 'BBCCCDDDDDDFFGGGHHJKLLLLLMMMMNNNNNNNNPPPPQRRRRRRRRRS
 # letters_timer - wait 30s
 # letters_end - end of timer, and enter letters_answers
 # letters_answers - collect the lengths of the words
-# letters_words - collect the words
+# letters_words - order the players and enter letters_word
+# letters_word - collect the player words
 
 my %methods = (
     go => \&begin_game,
@@ -34,6 +35,7 @@ my %begin_state = (
     letters_answers => \&begin_letters_answers,
     letters_end => \&begin_letters_end,
     letters_timer => \&begin_letters_timer,
+    letters_word => \&begin_letters_word,
     letters_words => \&begin_letters_words,
     pick_letters => \&begin_pick_letters,
 );
@@ -41,7 +43,7 @@ my %begin_state = (
 my %said_in_state = (
     pick_letters => \&pick_letters_said,
     letters_answers => \&letters_answers_said,
-    letters_words => \&letters_words_said,
+    letters_word => \&letters_word_said,
 );
 
 ### Bot::BasicBot hooks:
@@ -113,6 +115,30 @@ sub letters_answers_said {
     }
 }
 
+sub letters_word_said {
+    my ($self, $args) = @_;
+
+    return unless $args->{who} eq $self->{game}{player_answerer};
+
+    if ($args->{body} =~ /^\s*(\w+)\s*$/) {
+        # TODO: validate length
+        # TODO: check in dictionary (allow word if other players accept it even if not in dictionary)
+        $self->say(
+            address => 1,
+            who => $args->{who},
+            channel => $self->channel,
+            body => 'thanks',
+        );
+
+        if (@{ $self->{game}{player_answer_order} }) {
+            $self->set_state('letters_word');
+        } else {
+            # TODO: announce the scores
+            $self->next_round;
+        }
+    }
+}
+
 ### game state management:
 
 sub reset {
@@ -121,7 +147,6 @@ sub reset {
     $self->{game} = {};
     $self->{game}{letters_turn} = -1;
     $self->{game}{numbers_turn} = -1;
-    $self->{game}{letters} = [];
 
     # TODO: allow different probabilities in different formats (e.g. bastard mode)
     $self->{game}{vowel_stack} = [];
@@ -285,6 +310,7 @@ sub begin_letters {
     $self->{game}{letters_turn}++;
     $self->{game}{letters_turn} %= @{ $self->{game}{players} };
     $self->{game}{letters_picker} = $self->{game}{players}[$self->{game}{letters_turn}];
+    $self->{game}{letters} = [];
 
     $self->say(
         channel => $self->channel,
@@ -337,19 +363,32 @@ sub begin_letters_timer {
     $self->schedule_tick($self->{game}{format}{letters_time});
 }
 
+sub begin_letters_word {
+    my ($self) = @_;
+
+    $self->{game}{player_answer_idx} = shift @{ $self->{game}{player_answer_order} };
+    $self->{game}{player_answerer} = $self->{game}{players}[$self->{game}{player_answer_idx}];
+
+    # TODO: some sort of timeout
+
+    $self->say(
+        address => 1,
+        who => $self->{game}{players}[$self->{game}{player_answerer}],
+        channel => $self->channel,
+        body => "what is your $self->{game}{letters_answers}[$self->{game}{player_answer_idx}]-letter word?",
+    );
+}
+
 sub begin_letters_words {
     my ($self) = @_;
 
     # ask the player with the fewest letters first
     # TODO:  test all the stuff that involves multiplayer better
-    my @player_index_order = sort {
+    $self->{game}{player_answer_order} = [sort {
         $self->{game}{letters_answers}{$a} <=> $self->{game}{letters_answers}{$b}
-    } (0 .. @{ $self->{game}{players} }-1);
+    } (0 .. @{ $self->{game}{players} }-1)];
 
-    $self->say(
-        channel => $self->channel,
-        body => "would ask " . join(', ', (map { $self->{game}{players}[$_] } @player_index_order)),
-    );
+    $self->set_state('letters_word');
 }
 
 sub begin_pick_letters {
