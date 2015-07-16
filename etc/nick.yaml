@@ -1,8 +1,8 @@
 basic_bot:
     server: irc.freenode.net
     port: 6667
-    channels: ['#incoherency']
     nick: Nick_Cntdn
     name: 'Nick Hewer'
+channel: '#incoherency'
 ns_name: Nick_Cntdn
 ns_id: kcin_ndtnc
