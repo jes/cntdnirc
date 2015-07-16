@@ -3,7 +3,12 @@ package Cntdn::Nick;
 use strict;
 use warnings;
 
+use List::Util qw(shuffle);
+
 use base qw(Cntdn::Base);
+
+my @vowels = split //, 'AAAAAAAAAAAAAAAEEEEEEEEEEEEEEEEEEEEEIIIIIIIIIIIIIOOOOOOOOOOOOOUUUUU';
+my @consonants = split //, 'BBCCCDDDDDDFFGGGHHJKLLLLLMMMMNNNNNNNNPPPPQRRRRRRRRRSSSSSSSSSTTTTTTTTTVWXYZ';
 
 my %methods = (
     go => \&begin_game,
@@ -16,6 +21,11 @@ my %methods = (
 my %begin_state = (
     join => \&begin_join,
     letters => \&begin_letters,
+    pick_letters => \&begin_pick_letters,
+);
+
+my %said_in_state = (
+    pick_letters => \&pick_letters_said,
 );
 
 ### Bot::BasicBot hooks:
@@ -40,10 +50,21 @@ sub said {
         my ($cmd, @cmdargs) = split /\s+/, $args->{body};
         $cmd =~ s/^!//;
 
-        if ($methods{$cmd}) {
-            $methods{$cmd}->($self, $args, @cmdargs);
-        }
+        $methods{$cmd}->($self, $args, @cmdargs) if $methods{$cmd};
     }
+
+    $said_in_state{$self->{game}{state}}->($self, $args) if $said_in_state{$self->{game}{state}};
+}
+
+### said_in_state hooks:
+
+sub pick_letters_said {
+    my ($self, $args) = @_;
+
+    return unless $args->{who} eq $self->{game}{letters_picker};
+
+    $self->pick_letter('vowel') if $args->{body} =~ /^\s*v(owel)?\s*/;
+    $self->pick_letter('consonant') if $args->{body} =~ /^\s*c(onsonant)?\s*/;
 }
 
 ### game state management:
@@ -52,6 +73,14 @@ sub reset {
     my ($self) = @_;
 
     $self->{game} = {};
+    $self->{game}{letters_turn} = -1;
+    $self->{game}{numbers_turn} = -1;
+    $self->{game}{letters} = [];
+
+    # TODO: allow different probabilities in different formats (e.g. bastard mode)
+    $self->{game}{vowel_stack} = [];
+    $self->{game}{consonant_stack} = [];
+
     $self->set_state('wait');
 }
 
@@ -79,6 +108,28 @@ sub has_joined {
     return 0;
 }
 
+sub pick_letter {
+    my ($self, $type) = @_;
+
+    my $l;
+
+    if ($type eq 'vowel') {
+        $self->{game}{vowel_stack} = [shuffle @vowels] unless @{ $self->{game}{vowel_stack} };
+        $l = shift @{ $self->{game}{vowel_stack} };
+    } else {
+        $self->{game}{consonant_stack} = [shuffle @consonants] unless @{ $self->{game}{consonant_stack} };
+        $l = shift @{ $self->{game}{consonant_stack} };
+    }
+
+    push @{ $self->{game}{letters} }, $l;
+    $self->say(
+        channel => $self->channel,
+        body => $l,
+    );
+
+    $self->set_state('pick_letters');
+}
+
 ### command handlers:
 
 sub begin_game {
@@ -86,10 +137,13 @@ sub begin_game {
 
     return unless $self->{game}{state} eq 'join';
     return unless $self->has_joined($args->{who});
+    return unless @{ $self->{game}{players} };
+
+    $self->{game}{players} = [shuffle @{ $self->{game}{players} }];
 
     $self->say(
         channel => $self->channel,
-        body => "beginning game with " . (scalar @{ $self->{game}{players} }) . " players",
+        body => "beginning game with " . join(', ', @{ $self->{game}{players} }),
     );
 
     $self->next_round;
@@ -176,9 +230,33 @@ sub begin_join {
 sub begin_letters {
     my ($self) = @_;
 
+    $self->{game}{letters_turn}++;
+    $self->{game}{letters_turn} %= @{ $self->{game}{players} };
+    $self->{game}{letters_picker} = $self->{game}{players}[$self->{game}{letters_turn}];
+
     $self->say(
         channel => $self->channel,
-        body => 'Letters round. Whose turn is it to pick?',
+        body => "Letters round. It's $self->{game}{letters_picker}'s turn to pick letters.",
+    );
+
+    $self->set_state('pick_letters');
+}
+
+sub begin_pick_letters {
+    my ($self) = @_;
+
+    # TODO: take number of letters from config file
+    if (@{ $self->{game}{letters} } == 9) {
+        $self->set_state('letters_timer');
+        return;
+    }
+
+    # TODO: maximum of 6 consonants; maximum of 5 vowels (from config)
+    $self->say(
+        address => 1,
+        who => $self->{game}{letters_picker},
+        channel => $self->channel,
+        body => "vowel or consonant? [v/c]",
     );
 }
 
