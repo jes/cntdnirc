@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Cntdn::Nick;
+use Getopt::Long;
+
+my $cfg_file = '/etc/cntdn/nick.yaml';
+
+GetOptions(
+    'c|cfg=s' => \$cfg_file,
+) or pod2usage();
+
+my $nick = Cntdn::Nick->new(
+    cfg => $cfg_file,
+);
+$nick->run();
