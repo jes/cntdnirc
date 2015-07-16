@@ -18,6 +18,8 @@ my %begin_state = (
     letters => \&begin_letters,
 );
 
+### Bot::BasicBot hooks:
+
 sub init {
     my ($self) = @_;
 
@@ -26,20 +28,13 @@ sub init {
     return 1;
 }
 
-sub reset {
-    my ($self) = @_;
-
-    $self->{game} = {};
-    $self->set_state('wait');
-}
-
 sub said {
     my ($self, $args) = @_;
 
     $self->SUPER::said($args);
     return unless $self->channel eq $self->channel;
 
-    $self->log("$args->{who} said '$args->{body}' in $self->channel");
+    $self->log("$args->{who} said '$args->{body}'");
 
     if ($args->{body} =~ /^!/) {
         my ($cmd, @cmdargs) = split /\s+/, $args->{body};
@@ -51,12 +46,51 @@ sub said {
     }
 }
 
+### game state management:
+
+sub reset {
+    my ($self) = @_;
+
+    $self->{game} = {};
+    $self->set_state('wait');
+}
+
+sub next_round {
+    my ($self) = @_;
+
+    my $next = shift @{ $self->{game}{format} };
+    if (!defined $next) {
+        # TODO: game ends
+        $self->reset;
+        $self->say(
+            channel => $self->channel,
+            body => 'game over',
+        );
+        return;
+    }
+
+    $self->set_state($next);
+}
+
+sub has_joined {
+    my ($self, $who) = @_;
+
+    return 1 if grep { $_ eq $who } @{ $self->{game}{players} };
+    return 0;
+}
+
 ### command handlers:
 
 sub begin_game {
     my ($self, $args) = @_;
 
     return unless $self->{game}{state} eq 'join';
+    return unless $self->has_joined($args->{who});
+
+    $self->say(
+        channel => $self->channel,
+        body => "beginning game with " . (scalar @{ $self->{game}{players} }) . " players",
+    );
 
     $self->next_round;
 }
@@ -65,12 +99,15 @@ sub join_game {
     my ($self, $args) = @_;
 
     return unless $self->{game}{state} eq 'join';
+    return if $self->has_joined($args->{who});
+
+    push @{ $self->{game}{players} }, $args->{who};
 
     $self->say(
         address => 1,
         who => $args->{who},
         channel => $self->channel,
-        body => "you've joined the game (now got N players)",
+        body => "you've joined the game (now got " . (scalar @{ $self->{game}{players} }) . " players)",
     );
 }
 
@@ -116,23 +153,6 @@ sub show_state {
         channel => $self->channel,
         body => "state=$self->{game}{state}",
     );
-}
-
-sub next_round {
-    my ($self) = @_;
-
-    my $next = shift @{ $self->{game}{format} };
-    if (!defined $next) {
-        # TODO: game ends
-        $self->reset;
-        $self->say(
-            channel => $self->channel,
-            body => 'game over',
-        );
-        return;
-    }
-
-    $self->set_state($next);
 }
 
 ### state entry:
