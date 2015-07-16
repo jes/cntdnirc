@@ -3,6 +3,7 @@ basic_bot:
     port: 6667
     nick: Nick_Cntdn
     name: 'Nick Hewer'
+    flood: 1
 channel: '#incoherency'
 ns_name: Nick_Cntdn
 ns_id: kcin_ndtnc

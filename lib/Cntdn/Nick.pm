@@ -21,6 +21,8 @@ my %methods = (
 my %begin_state = (
     join => \&begin_join,
     letters => \&begin_letters,
+    letters_answers => \&begin_letters_answers,
+    letters_timer => \&begin_letters_timer,
     pick_letters => \&begin_pick_letters,
 );
 
@@ -54,6 +56,21 @@ sub said {
     }
 
     $said_in_state{$self->{game}{state}}->($self, $args) if $said_in_state{$self->{game}{state}};
+}
+
+sub tick {
+    my ($self) = @_;
+
+    return unless $self->{game}{timer_end};
+
+    if (time >= $self->{game}{timer_end}) {
+        # timer finished, enter the next state
+        $self->set_state($self->{game}{timer_state});
+        return 0;
+    } else {
+        # wait some more before firing again
+        return $self->{game}{timer_end} - time;
+    }
 }
 
 ### said_in_state hooks:
@@ -124,10 +141,15 @@ sub pick_letter {
     push @{ $self->{game}{letters} }, $l;
     $self->say(
         channel => $self->channel,
-        body => $l,
+        body => join(' ', map { uc $_ } @{ $self->{game}{letters} }),
     );
 
-    $self->set_state('pick_letters');
+    # TODO: take number of letters from config file
+    if (@{ $self->{game}{letters} } == 9) {
+        $self->set_state('letters_timer');
+    } else {
+        $self->set_state('pick_letters');
+    }
 }
 
 ### command handlers:
@@ -242,14 +264,30 @@ sub begin_letters {
     $self->set_state('pick_letters');
 }
 
-sub begin_pick_letters {
+sub begin_letters_answers {
     my ($self) = @_;
 
-    # TODO: take number of letters from config file
-    if (@{ $self->{game}{letters} } == 9) {
-        $self->set_state('letters_timer');
-        return;
-    }
+    $self->say(
+        channel => $self->channel,
+        body => "Time's up!",
+    );
+}
+
+sub begin_letters_timer {
+    my ($self) = @_;
+
+    $self->say(
+        channel => $self->channel,
+        body => "30 seconds to solve those letters...",
+    );
+    $self->{game}{timer_end} = time + 30;
+    $self->{game}{timer_state} = 'letters_answers';
+
+    $self->schedule_tick(30);
+}
+
+sub begin_pick_letters {
+    my ($self) = @_;
 
     # TODO: maximum of 6 consonants; maximum of 5 vowels (from config)
     $self->say(
