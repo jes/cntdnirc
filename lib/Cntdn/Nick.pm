@@ -10,6 +10,16 @@ use base qw(Cntdn::Base);
 my @vowels = split //, 'AAAAAAAAAAAAAAAEEEEEEEEEEEEEEEEEEEEEIIIIIIIIIIIIIOOOOOOOOOOOOOUUUUU';
 my @consonants = split //, 'BBCCCDDDDDDFFGGGHHJKLLLLLMMMMNNNNNNNNPPPPQRRRRRRRRRSSSSSSSSSTTTTTTTTTVWXYZ';
 
+# states:
+# wait - wait for someone to !start
+# join - wait for people to !join, and then !go
+# letters - initialise letters round and enter pick_letters
+# pick_letters - pick the letters
+# letters_timer - wait 30s
+# letters_end - end of timer, and enter letters_answers
+# letters_answers - collect the lengths of the words
+# letters_words - collect the words
+
 my %methods = (
     go => \&begin_game,
     join => \&join_game,
@@ -22,12 +32,16 @@ my %begin_state = (
     join => \&begin_join,
     letters => \&begin_letters,
     letters_answers => \&begin_letters_answers,
+    letters_end => \&begin_letters_end,
     letters_timer => \&begin_letters_timer,
+    letters_words => \&begin_letters_words,
     pick_letters => \&begin_pick_letters,
 );
 
 my %said_in_state = (
     pick_letters => \&pick_letters_said,
+    letters_answers => \&letters_answers_said,
+    letters_words => \&letters_words_said,
 );
 
 ### Bot::BasicBot hooks:
@@ -84,6 +98,21 @@ sub pick_letters_said {
     $self->pick_letter('consonant') if $args->{body} =~ /^\s*c(onsonant)?\s*/;
 }
 
+sub letters_answers_said {
+    my ($self, $args) = @_;
+
+    return unless $args->{who} eq $self->{game}{letters_answerer};
+
+    if ($args->{body} =~ /^\s*(\d+)\s*$/) {
+        $self->{game}{letters_answers}[$self->{game}{letters_answers_turn}] = $1;
+        if (++$self->{game}{letters_answers_done} == @{ $self->{game}{players} }) {
+            $self->set_state('letters_words');
+        } else {
+            $self->set_state('letters_answers');
+        }
+    }
+}
+
 ### game state management:
 
 sub reset {
@@ -104,7 +133,7 @@ sub reset {
 sub next_round {
     my ($self) = @_;
 
-    my $next = shift @{ $self->{game}{format} };
+    my $next = shift @{ $self->{game}{format}{rounds} };
     if (!defined $next) {
         # TODO: game ends
         $self->reset;
@@ -144,8 +173,7 @@ sub pick_letter {
         body => join(' ', map { uc $_ } @{ $self->{game}{letters} }),
     );
 
-    # TODO: take number of letters from config file
-    if (@{ $self->{game}{letters} } == 9) {
+    if (@{ $self->{game}{letters} } == $self->{game}{format}{num_letters}) {
         $self->set_state('letters_timer');
     } else {
         $self->set_state('pick_letters');
@@ -212,10 +240,12 @@ sub start_game {
     }
 
     # TODO: get formats from cfg
-    $self->{game}{format} = [qw(
+    $self->{game}{format}{rounds} = [qw(
         letters letters letters letters numbers letters letters letters letters
         numbers letters letters letters numbers conundrum
     )];
+    $self->{game}{format}{num_letters} = 9;
+    $self->{game}{format}{letters_time} = 3;
     $self->set_state('join');
     # TODO: start 5 minute timer to ->reset if nobody joins or begin if anyone does
 }
@@ -267,10 +297,31 @@ sub begin_letters {
 sub begin_letters_answers {
     my ($self) = @_;
 
+    $self->{game}{letters_answers_turn}++;
+    $self->{game}{letters_answers_turn} %= @{ $self->{game}{players} };
+    $self->{game}{letters_answerer} = $self->{game}{players}[$self->{game}{letters_answers_turn}];
+
+    $self->say(
+        address => 1,
+        who => $self->{game}{letters_answerer},
+        channel => $self->channel,
+        body => 'how many letters?',
+    );
+}
+
+sub begin_letters_end {
+    my ($self) = @_;
+
     $self->say(
         channel => $self->channel,
         body => "Time's up!",
     );
+
+    $self->{game}{letters_answers} = [(undef) x @{ $self->{game}{players} }];
+    $self->{game}{letters_answers_done} = 0;
+    $self->{game}{letters_answers_turn} = $self->{game}{letters_turn} - 1;
+
+    $self->set_state('letters_answers');
 }
 
 sub begin_letters_timer {
@@ -278,18 +329,34 @@ sub begin_letters_timer {
 
     $self->say(
         channel => $self->channel,
-        body => "30 seconds to solve those letters...",
+        body => "$self->{game}{format}{letters_time} seconds to solve those letters...",
     );
-    $self->{game}{timer_end} = time + 30;
-    $self->{game}{timer_state} = 'letters_answers';
+    $self->{game}{timer_end} = time + $self->{game}{format}{letters_time};
+    $self->{game}{timer_state} = 'letters_end';
 
-    $self->schedule_tick(30);
+    $self->schedule_tick($self->{game}{format}{letters_time});
+}
+
+sub begin_letters_words {
+    my ($self) = @_;
+
+    # ask the player with the fewest letters first
+    # TODO:  test all the stuff that involves multiplayer better
+    my @player_index_order = sort {
+        $self->{game}{letters_answers}{$a} <=> $self->{game}{letters_answers}{$b}
+    } (0 .. @{ $self->{game}{players} }-1);
+
+    $self->say(
+        channel => $self->channel,
+        body => "would ask " . join(', ', (map { $self->{game}{players}[$_] } @player_index_order)),
+    );
 }
 
 sub begin_pick_letters {
     my ($self) = @_;
 
-    # TODO: maximum of 6 consonants; maximum of 5 vowels (from config)
+    # TODO: some sort of timeout
+    # TODO: maximum of 6 consonants; maximum of 5 vowels (from format)
     $self->say(
         address => 1,
         who => $self->{game}{letters_picker},
