@@ -3,6 +3,8 @@ package Cntdn::Nick;
 use strict;
 use warnings;
 
+use Cntdn::Base;
+use Cntdn::Player;
 use List::Util qw(shuffle);
 
 use base qw(Cntdn::Base);
@@ -94,7 +96,7 @@ sub tick {
 sub pick_letters_said {
     my ($self, $args) = @_;
 
-    return unless $args->{who} eq $self->{game}{letters_picker};
+    return unless $args->{who} eq $self->{game}{letters_picker}{nick};
 
     $self->pick_letter('vowel') if $args->{body} =~ /^\s*v(owel)?\s*/;
     $self->pick_letter('consonant') if $args->{body} =~ /^\s*c(onsonant)?\s*/;
@@ -103,10 +105,10 @@ sub pick_letters_said {
 sub letters_answers_said {
     my ($self, $args) = @_;
 
-    return unless $args->{who} eq $self->{game}{letters_answerer};
+    return unless $args->{who} eq $self->{game}{letters_answerer}{nick};
 
     if ($args->{body} =~ /^\s*(\d+)\s*$/) {
-        $self->{game}{letters_answers}[$self->{game}{letters_answers_turn}] = $1;
+        $self->{game}{letters_answerer}{letters_length} = $1;
         if (++$self->{game}{letters_answers_done} == @{ $self->{game}{players} }) {
             $self->set_state('letters_words');
         } else {
@@ -118,7 +120,7 @@ sub letters_answers_said {
 sub letters_word_said {
     my ($self, $args) = @_;
 
-    return unless $args->{who} eq $self->{game}{player_answerer};
+    return unless $args->{who} eq $self->{game}{player_answerer}{nick};
 
     if ($args->{body} =~ /^\s*(\w+)\s*$/) {
         # TODO: validate length
@@ -175,7 +177,7 @@ sub next_round {
 sub has_joined {
     my ($self, $who) = @_;
 
-    return 1 if grep { $_ eq $who } @{ $self->{game}{players} };
+    return 1 if grep { $_->{nick} eq $who } @{ $self->{game}{players} };
     return 0;
 }
 
@@ -218,7 +220,7 @@ sub begin_game {
 
     $self->say(
         channel => $self->channel,
-        body => "beginning game with " . join(', ', @{ $self->{game}{players} }),
+        body => "beginning game with " . join(', ', map { $_->{nick} } @{ $self->{game}{players} }),
     );
 
     $self->next_round;
@@ -230,7 +232,9 @@ sub join_game {
     return unless $self->{game}{state} eq 'join';
     return if $self->has_joined($args->{who});
 
-    push @{ $self->{game}{players} }, $args->{who};
+    push @{ $self->{game}{players} }, Cntdn::Player->new(
+        nick => $args->{who},
+    );
 
     $self->say(
         address => 1,
@@ -314,7 +318,7 @@ sub begin_letters {
 
     $self->say(
         channel => $self->channel,
-        body => "Letters round. It's $self->{game}{letters_picker}'s turn to pick letters.",
+        body => "Letters round. It's $self->{game}{letters_picker}{nick}'s turn to pick letters.",
     );
 
     $self->set_state('pick_letters');
@@ -329,7 +333,7 @@ sub begin_letters_answers {
 
     $self->say(
         address => 1,
-        who => $self->{game}{letters_answerer},
+        who => $self->{game}{letters_answerer}{nick},
         channel => $self->channel,
         body => 'how many letters?',
     );
@@ -373,9 +377,9 @@ sub begin_letters_word {
 
     $self->say(
         address => 1,
-        who => $self->{game}{player_answerer},
+        who => $self->{game}{player_answerer}{nick},
         channel => $self->channel,
-        body => "what is your $self->{game}{letters_answers}[$self->{game}{player_answer_idx}]-letter word?",
+        body => "what is your $self->{game}{player_answerer}{letters_length}-letter word?",
     );
 }
 
@@ -385,7 +389,7 @@ sub begin_letters_words {
     # ask the player with the fewest letters first
     # TODO:  test all the stuff that involves multiplayer better
     $self->{game}{player_answer_order} = [sort {
-        $self->{game}{letters_answers}[$a] <=> $self->{game}{letters_answers}[$b]
+        $self->{game}{players}[$a]{letters_length} <=> $self->{game}{players}[$b]{letters_length}
     } (0 .. @{ $self->{game}{players} }-1)];
 
     $self->set_state('letters_word');
@@ -398,7 +402,7 @@ sub begin_pick_letters {
     # TODO: maximum of 6 consonants; maximum of 5 vowels (from format)
     $self->say(
         address => 1,
-        who => $self->{game}{letters_picker},
+        who => $self->{game}{letters_picker}{nick},
         channel => $self->channel,
         body => "vowel or consonant? [v/c]",
     );
