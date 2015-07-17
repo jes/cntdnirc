@@ -134,7 +134,19 @@ sub letters_answers_said {
     return unless $args->{who} eq $answerer->{nick};
 
     if ($args->{body} =~ /^\s*(\d+)\s*$/) {
-        $answerer->{letters_length} = $1;
+        my $len = $1;
+
+        if ($len > $g->{format}{num_letters}) {
+            $self->say(
+                address => 1,
+                who => $args->{who},
+                channel => $self->channel,
+                body => "that's too many letters, type 0 if you have no word",
+            );
+            return;
+        }
+
+        $answerer->{letters_length} = $len;
         if (++$g->{letters_answers_done} == @{ $g->{players} }) {
             $self->set_state('letters_words');
         } else {
@@ -182,28 +194,7 @@ sub letters_word_said {
             body => 'thanks',
         );
 
-        if (@{ $g->{player_answer_order} }) {
-            $self->set_state('letters_word');
-        } else {
-            # get players ordered by score
-            my @players = @{ $g->{players} };
-            my $max = 0;
-            for my $p (@players) {
-                $max = $p->{letters_length} if $p->{letters_length} >= $max;
-            }
-
-            # calculate points
-            my $points = $players[0]{letters_length};
-            $points *= 2 if $points == $g->{format}{num_letters};
-
-            # add points to all the players with the longest word
-            for my $p (@players) {
-                $p->{score} += $points if $p->{letters_length} == $players[0]{letters_length};
-            }
-
-            $self->show_scores;
-            $self->next_round;
-        }
+        $self->next_word_answer;
     }
 }
 
@@ -324,6 +315,7 @@ sub join_game {
 
     push @{ $g->{players} }, Cntdn::Player->new(
         nick => $args->{who},
+        score => 0,
     );
 
     $self->say(
@@ -352,6 +344,35 @@ sub start_game {
     $self->set_state('join');
     # TODO: start 5 minute timer to ->reset if nobody joins or begin if anyone does
 }
+
+sub next_word_answer {
+    my ($self) = @_;
+    my $g = $self->{game};
+
+    if (@{ $g->{player_answer_order} }) {
+        $self->set_state('letters_word');
+    } else {
+        # get players ordered by score
+        my @players = @{ $g->{players} };
+        my $maxlen = 0;
+        for my $p (@players) {
+            $maxlen = $p->{letters_length} if $p->{letters_length} > $max;
+        }
+
+        # calculate points
+        my $points = $maxlen;
+        $points *= 2 if $maxlen == $g->{format}{num_letters};
+
+        # add points to all the players with the longest word
+        for my $p (@players) {
+            $p->{score} += $points if $p->{letters_length} == $maxlen;
+        }
+
+        $self->show_scores;
+        $self->next_round;
+    }
+}
+
 
 ### command handlers:
 
@@ -476,6 +497,12 @@ sub begin_letters_word {
 
     $g->{player_answer_idx} = shift @{ $g->{player_answer_order} };
     $g->{player_answerer} = $g->{players}[$g->{player_answer_idx}];
+
+    # skip this player if they have 0 letters
+    if ($g->{player_answerer}{letters_length} == 0) {
+        $self->next_word_answer;
+        return;
+    }
 
     # TODO: some sort of timeout
 
