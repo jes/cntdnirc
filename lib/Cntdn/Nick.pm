@@ -356,7 +356,7 @@ sub next_word_answer {
         my @players = @{ $g->{players} };
         my $maxlen = 0;
         for my $p (@players) {
-            $maxlen = $p->{letters_length} if $p->{letters_length} > $max;
+            $maxlen = $p->{letters_length} if $p->{letters_length} > $maxlen;
         }
 
         # calculate points
