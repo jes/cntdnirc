@@ -159,6 +159,8 @@ sub letters_word_said {
     my ($self, $args) = @_;
     my $g = $self->{game};
 
+    # TODO: take words in PM
+
     my $answerer = $g->{player_answerer};
     return unless $args->{who} eq $answerer->{nick};
 
@@ -519,8 +521,7 @@ sub begin_letters_word {
     my ($self) = @_;
     my $g = $self->{game};
 
-    $g->{player_answer_idx} = shift @{ $g->{player_answer_order} };
-    $g->{player_answerer} = $g->{players}[$g->{player_answer_idx}];
+    $g->{player_answerer} = shift @{ $g->{player_answer_order} };
 
     # skip this player if they have 0 letters
     if ($g->{player_answerer}{letters_length} == 0) {
@@ -542,11 +543,22 @@ sub begin_letters_words {
     my ($self) = @_;
     my $g = $self->{game};
 
+    use sort 'stable';
+
     # ask the player with the fewest letters first
-    my @players = @{ $g->{players} };
+    # NOTE: the weird way of doing this ensures that if the players have the
+    # same number of letters, we ask the player whose turn it is first (relies
+    # on stable sort)
+    my @players;
+    my $i = $g->{letters_turn};
+    while (@players < @{ $g->{players} }) {
+        push @players, $g->{players}[$i];
+        $i++;
+        $i %= @{ $g->{players} };
+    }
     $g->{player_answer_order} = [sort {
-        $players[$a]{letters_length} <=> $players[$b]{letters_length}
-    } (0 .. @players-1)];
+        $a->{letters_length} <=> $b->{letters_length}
+    } @players];
 
     $self->set_state('letters_word');
 }
