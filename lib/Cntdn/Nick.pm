@@ -167,6 +167,10 @@ sub letters_word_said {
             }
 
             # TODO: check in dictionary (TODO: allow word if other players accept it even if not in dictionary)
+            $self->say(
+                channel => $self->channel,
+                body => "not validating the word (TODO)",
+            );
 
             $answerer->{letters_word} = $word;
         }
