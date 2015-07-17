@@ -168,6 +168,7 @@ sub letters_word_said {
             $answerer->{letters_length} = 0;
             $answerer->{letters_word} = '';
         } else {
+            # check the word is the declared length
             if (length $word != $answerer->{letters_length}) {
                 $self->say(
                     address => 1,
@@ -178,7 +179,16 @@ sub letters_word_said {
                 return;
             }
 
-            # TODO: check they didn't use letters they don't have
+            # check they didn't use letters they don't have
+            if (!$self->{words}->can_make($word, @{ $g->{letters} })) {
+                $self->say(
+                    address => 1,
+                    who => $args->{who},
+                    channel => $self->channel,
+                    body => "you can't make that word, type !skip if you have no word; what is your word?",
+                );
+                return;
+            }
 
             # check in dictionary
             # TODO: allow word if other players accept it even if not in dictionary?

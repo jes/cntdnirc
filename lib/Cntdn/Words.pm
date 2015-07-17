@@ -33,6 +33,7 @@ sub load {
 
 sub add_word {
     my ($self, $word) = @_;
+    $word = lc $word;
 
     my $n = $self->{trie};
 
@@ -47,6 +48,7 @@ sub add_word {
 
 sub is_word {
     my ($self, $word) = @_;
+    $word = lc $word;
 
     my $n = $self->{trie};
 
@@ -57,6 +59,17 @@ sub is_word {
     }
 
     return $n->{'$'};
+}
+
+sub can_make {
+    my ($self, $word, @letters) = @_;
+
+    my %c;
+    $c{lc $_}++ for @letters;
+    $c{lc $_}-- for split //, $word;
+
+    return 0 if grep { $_ < 0 } values %c;
+    return 1;
 }
 
 1;
