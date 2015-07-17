@@ -22,14 +22,10 @@ sub load {
     open(my $fh, '<', $self->{file})
         or die "can't read $self->{file}: $!\n";
 
-    my $i = 0;
-
     $self->{trie} = {};
     while (<$fh>) {
         chomp;
         $self->add_word($_);
-        use Data::Dumper;
-        print Dumper($self->{trie}) if $i++ == 3;
     }
 
     return;
