@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Cntdn::Words;
+
+my $w = Cntdn::Words->new(file => '/home/jes/cntdn/dictionary');
+
+while (<>) {
+    chomp;
+
+    if ($w->is_word($_)) {
+        print "$_\tok\n";
+    } else {
+        print "$_\tfail\n";
+    }
+}
