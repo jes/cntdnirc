@@ -181,7 +181,23 @@ sub letters_word_said {
         if (@{ $g->{player_answer_order} }) {
             $self->set_state('letters_word');
         } else {
-            # TODO: announce the scores
+            # get players ordered by score
+            my @players = @{ $g->{players} };
+            my $max = 0;
+            for my $p (@players) {
+                $max = $p->{letters_length} if $p->{letters_length} >= $max;
+            }
+
+            # calculate points
+            my $points = $players[0]{letters_length};
+            $points *= 2 if $points == $g->{format}{num_letters};
+
+            # add points to all the players with the longest word
+            for my $p (@players) {
+                $p->{score} += $points if $p->{letters_length} == $players[0]{letters_length};
+            }
+
+            $self->show_scores;
             $self->next_round;
         }
     }
@@ -234,6 +250,22 @@ sub next_round {
     }
 
     $self->set_state($next);
+}
+
+sub show_scores {
+    my ($self) = @_;
+    my $g = $self->{game};
+
+    my @players = sort {
+        $b->{score} <=> $a->{score};
+    } @{ $g->{players} };
+
+    for my $p (@players) {
+        $self->say(
+            channel => $self->channel,
+            body => "$p->{nick} - $p->{score} points",
+        );
+    }
 }
 
 sub has_joined {
