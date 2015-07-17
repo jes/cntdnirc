@@ -178,6 +178,7 @@ sub letters_word_said {
                 return;
             }
 
+            # TODO: check they didn't use letters they don't have
             # TODO: check in dictionary (TODO: allow word if other players accept it even if not in dictionary)
             $self->say(
                 channel => $self->channel,
@@ -334,10 +335,11 @@ sub start_game {
 
     # TODO: get formats from cfg (maybe with specified format)
     $g->{format} = {
-        rounds => [qw(
-            letters letters letters letters numbers letters letters letters letters
-            numbers letters letters letters numbers conundrum
-        )],
+        rounds => [qw(letters letters letters letters)],
+        #[qw(
+        #    letters letters letters letters numbers letters letters letters letters
+        #    numbers letters letters letters numbers conundrum
+        #)],
         num_letters => 9,
         letters_time => 3,
     };
