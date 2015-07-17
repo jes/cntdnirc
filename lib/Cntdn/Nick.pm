@@ -257,7 +257,6 @@ sub next_round {
 
     my $next = shift @{ $g->{format}{rounds} };
     if (!defined $next) {
-        # TODO: game ends
         $self->reset;
         $self->say(
             channel => $self->channel,
