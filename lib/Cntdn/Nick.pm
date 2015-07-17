@@ -453,6 +453,8 @@ sub begin_letters_answers {
     $g->{letters_answers_turn} %= @players;
     $g->{letters_answerer} = $players[$g->{letters_answers_turn}];
 
+    # TODO: some sort of timeout
+
     $self->say(
         address => 1,
         who => $g->{letters_answerer}{nick},
