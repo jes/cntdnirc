@@ -7,6 +7,7 @@ use warnings;
 # letters_length
 # letters_word
 # numbers_answer
+# score
 
 sub new {
     my ($pkg, %opts) = @_;
