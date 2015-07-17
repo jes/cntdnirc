@@ -23,11 +23,9 @@ my @consonants = split //, 'BBCCCDDDDDDFFGGGHHJKLLLLLMMMMNNNNNNNNPPPPQRRRRRRRRRS
 # letters_words - order the players and enter letters_word
 # letters_word - collect the player words
 
+# only for methods that make sense in any state (or at least many states)
 my %methods = (
-    go => \&begin_game,
-    join => \&join_game,
     reset => \&reset_game,
-    start => \&start_game,
     state => \&show_state,
 );
 
@@ -46,6 +44,8 @@ my %said_in_state = (
     pick_letters => \&pick_letters_said,
     letters_answers => \&letters_answers_said,
     letters_word => \&letters_word_said,
+    wait => \&wait_said,
+    join => \&join_said,
 );
 
 ### Bot::BasicBot hooks:
@@ -72,10 +72,10 @@ sub said {
         $cmd =~ s/^!//;
 
         $methods{$cmd}->($self, $args, @cmdargs) if $methods{$cmd};
-    } else {
-        my $state = $g->{state};
-        $said_in_state{$state}->($self, $args) if $said_in_state{$state};
     }
+
+    my $state = $g->{state};
+    $said_in_state{$state}->($self, $args) if $said_in_state{$state};
 }
 
 sub tick {
@@ -104,8 +104,26 @@ sub pick_letters_said {
     my $picker = $g->{letters_picker};
     return unless $args->{who} eq $picker->{nick};
 
-    $self->pick_letter('vowel') if $args->{body} =~ /^\s*v(owel)?\s*/;
-    $self->pick_letter('consonant') if $args->{body} =~ /^\s*c(onsonant)?\s*/;
+    my $s = $args->{body};
+    $s =~ s/\s*//g;
+
+    # do nothing if it isn't a string of c's and v's
+    return if $s =~ /[^cv]/;
+
+    while ((@{ $g->{letters} } < $g->{format}{num_letters}) && $s =~ /([cv])/g) {
+        $self->pick_letter($1 eq 'v' ? 'vowel' : 'consonant');
+    }
+
+    $self->say(
+        channel => $self->channel,
+        body => join(' ', map { uc $_ } @{ $g->{letters} }),
+    );
+
+    if (@{ $g->{letters} } == $g->{format}{num_letters}) {
+        $self->set_state('letters_timer');
+    } else {
+        $self->set_state('pick_letters');
+    }
 }
 
 sub letters_answers_said {
@@ -132,9 +150,27 @@ sub letters_word_said {
     my $answerer = $g->{player_answerer};
     return unless $args->{who} eq $answerer->{nick};
 
-    if ($args->{body} =~ /^\s*(\w+)\s*$/) {
-        # TODO: validate length
-        # TODO: check in dictionary (allow word if other players accept it even if not in dictionary)
+    if ($args->{body} =~ /^\s*(!?\w+)\s*$/) {
+        my $word = $1;
+        if ($word eq '!skip') {
+            $answerer->{letters_length} = 0;
+            $answerer->{letters_word} = '';
+        } else {
+            if (length $word != $answerer->{letters_length}) {
+                $self->say(
+                    address => 1,
+                    who => $args->{who},
+                    channel => $self->channel,
+                    body => "that's not $answerer->{letters_length} letters, type !skip if you have no word",
+                );
+                return;
+            }
+
+            # TODO: check in dictionary (TODO: allow word if other players accept it even if not in dictionary)
+
+            $answerer->{letters_word} = $word;
+        }
+
         $self->say(
             address => 1,
             who => $args->{who},
@@ -149,6 +185,21 @@ sub letters_word_said {
             $self->next_round;
         }
     }
+}
+
+sub wait_said {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    $self->start_game($args) if $args->{body} eq '!start';
+}
+
+sub join_said {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    $self->begin_game($args) if $args->{body} eq '!go';
+    $self->join_game($args) if $args->{body} eq '!join';
 }
 
 ### game state management:
@@ -208,19 +259,7 @@ sub pick_letter {
     }
 
     push @{ $g->{letters} }, $l;
-    $self->say(
-        channel => $self->channel,
-        body => join(' ', map { uc $_ } @{ $g->{letters} }),
-    );
-
-    if (@{ $g->{letters} } == $g->{format}{num_letters}) {
-        $self->set_state('letters_timer');
-    } else {
-        $self->set_state('pick_letters');
-    }
 }
-
-### command handlers:
 
 sub begin_game {
     my ($self, $args) = @_;
@@ -259,6 +298,27 @@ sub join_game {
     );
 }
 
+sub start_game {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    return unless $g->{state} eq 'wait';
+
+    # TODO: get formats from cfg (maybe with specified format)
+    $g->{format} = {
+        rounds => [qw(
+            letters letters letters letters numbers letters letters letters letters
+            numbers letters letters letters numbers conundrum
+        )],
+        num_letters => 9,
+        letters_time => 3,
+    };
+    $self->set_state('join');
+    # TODO: start 5 minute timer to ->reset if nobody joins or begin if anyone does
+}
+
+### command handlers:
+
 sub reset_game {
     my ($self, $args) = @_;
     my $g = $self->{game};
@@ -273,29 +333,6 @@ sub reset_game {
         channel => $self->channel,
         body => "have reset",
     );
-}
-
-sub start_game {
-    my ($self, $args, @cmdargs) = @_;
-    my $g = $self->{game};
-
-    return unless $g->{state} eq 'wait';
-
-    if (@cmdargs) {
-        # TODO: start a game with specified format
-    }
-
-    # TODO: get formats from cfg
-    $g->{format} = {
-        rounds => [qw(
-            letters letters letters letters numbers letters letters letters letters
-            numbers letters letters letters numbers conundrum
-        )],
-        num_letters => 9,
-        letters_time => 3,
-    };
-    $self->set_state('join');
-    # TODO: start 5 minute timer to ->reset if nobody joins or begin if anyone does
 }
 
 sub show_state {
