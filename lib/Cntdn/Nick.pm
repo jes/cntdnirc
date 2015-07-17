@@ -173,17 +173,28 @@ sub letters_word_said {
                     address => 1,
                     who => $args->{who},
                     channel => $self->channel,
-                    body => "that's not $answerer->{letters_length} letters, type !skip if you have no word",
+                    body => "that's not $answerer->{letters_length} letters, type !skip if you have no word; what is your word?",
                 );
                 return;
             }
 
             # TODO: check they didn't use letters they don't have
-            # TODO: check in dictionary (TODO: allow word if other players accept it even if not in dictionary)
-            $self->say(
-                channel => $self->channel,
-                body => "not validating the word (TODO)",
-            );
+
+            # check in dictionary
+            # TODO: allow word if other players accept it even if not in dictionary?
+            if (!$self->{words}->is_word($word)) {
+                $self->say(
+                    address => 1,
+                    who => $args->{who},
+                    channel => $self->channel,
+                    body => "that's not a legit word, sorry",
+                );
+
+                $answerer->{letters_length} = 0;
+                $answerer->{letters_word} = '';
+                $self->next_word_answer;
+                return;
+            }
 
             $answerer->{letters_word} = $word;
         }

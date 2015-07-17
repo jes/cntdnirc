@@ -7,3 +7,4 @@ basic_bot:
 channel: '#incoherency'
 ns_name: Nick_Cntdn
 ns_id: kcin_ndtnc
+dictionary: '/home/jes/cntdn/dictionary'

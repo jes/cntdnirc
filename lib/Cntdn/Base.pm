@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Bot::BasicBot;
+use Cntdn::Words;
 use YAML qw(LoadFile);
 
 use base qw(Bot::BasicBot);
@@ -16,6 +17,8 @@ sub new {
 
     my $self = $pkg->SUPER::new(%{ $cfg->{basic_bot} });
     $self->{cfg} = $cfg;
+
+    $self->{words} = Cntdn::Words->new(file => $cfg->{dictionary});
 
     return $self;
 }
