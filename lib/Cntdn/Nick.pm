@@ -396,7 +396,7 @@ sub start_game {
         #    numbers letters letters letters numbers conundrum
         #)],
         num_letters => 9,
-        letters_time => 3,
+        letters_time => 3, # secs:
     };
     $self->set_state('join');
     # TODO: start 5 minute timer to ->reset if nobody joins or begin if anyone does
@@ -409,6 +409,8 @@ sub next_word_answer {
     $g->{need_words}--;
 
     if ($g->{need_words} == 0) {
+        # TODO: build suspense a little?
+
         # get players ordered by score
         my @players = sort { $b->{letters_length} <=> $a->{letters_length} } @{ $g->{players} };
         for my $p (@players) {
@@ -440,6 +442,9 @@ sub next_word_answer {
         }
 
         $self->show_scores;
+
+        # TODO: bit of a delay before starting the next round
+
         $self->next_round;
     }
 }
