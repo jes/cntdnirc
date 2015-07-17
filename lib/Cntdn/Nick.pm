@@ -43,9 +43,14 @@ my %begin_state = (
 my %said_in_state = (
     pick_letters => \&pick_letters_said,
     letters_answers => \&letters_answers_said,
-    letters_word => \&letters_word_said,
+#    letters_word => \&letters_word_said,
+    letters_words => \&letters_words_said,
     wait => \&wait_said,
     join => \&join_said,
+);
+
+my %pm_in_state = (
+    letters_words => \&letters_words_pm,
 );
 
 ### Bot::BasicBot hooks:
@@ -63,19 +68,23 @@ sub said {
     my $g = $self->{game};
 
     $self->SUPER::said($args);
-    return unless $self->channel eq $self->channel;
-
-    $self->log("$args->{who} said '$args->{body}'");
-
-    if ($args->{body} =~ /^!/) {
-        my ($cmd, @cmdargs) = split /\s+/, $args->{body};
-        $cmd =~ s/^!//;
-
-        $methods{$cmd}->($self, $args, @cmdargs) if $methods{$cmd};
-    }
 
     my $state = $g->{state};
-    $said_in_state{$state}->($self, $args) if $said_in_state{$state};
+
+    if ($args->{channel} eq $self->channel) {
+        $self->log("$args->{who} said '$args->{body}'");
+
+        if ($args->{body} =~ /^!/) {
+            my ($cmd, @cmdargs) = split /\s+/, $args->{body};
+            $cmd =~ s/^!//;
+
+            $methods{$cmd}->($self, $args, @cmdargs) if $methods{$cmd};
+        }
+
+        $said_in_state{$state}->($self, $args) if $said_in_state{$state};
+    } else {
+        $pm_in_state{$state}->($self, $args) if $pm_in_state{$state};
+    }
 }
 
 sub tick {
@@ -155,28 +164,42 @@ sub letters_answers_said {
     }
 }
 
-sub letters_word_said {
+sub letters_words_said {
     my ($self, $args) = @_;
     my $g = $self->{game};
 
-    # TODO: take words in PM
+    my $p = $self->player_by_nick($args->{who});
+    return unless $p && $p->{need_word};
 
-    my $answerer = $g->{player_answerer};
-    return unless $args->{who} eq $answerer->{nick};
+    $self->say(
+        address => 1,
+        who => $args->{who},
+        channel => $self->channel,
+        body => "please send your word via private message",
+    );
+}
+
+sub letters_words_pm {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    my $p = $self->player_by_nick($args->{who});
+    return unless $p && $p->{need_word};
 
     if ($args->{body} =~ /^\s*(!?\w+)\s*$/) {
         my $word = $1;
         if ($word eq '!skip') {
-            $answerer->{letters_length} = 0;
-            $answerer->{letters_word} = '';
+            $p->{letters_length} = 0;
+            $p->{letters_word} = '';
+            $p->{need_word} = 0;
         } else {
             # check the word is the declared length
-            if (length $word != $answerer->{letters_length}) {
+            if (length $word != $p->{letters_length}) {
                 $self->say(
-                    address => 1,
+                    address => 0,
                     who => $args->{who},
-                    channel => $self->channel,
-                    body => "that's not $answerer->{letters_length} letters, type !skip if you have no word; what is your word?",
+                    channel => 'msg',
+                    body => "that's not $p->{letters_length} letters, type !skip if you have no word; what is your word?",
                 );
                 return;
             }
@@ -184,9 +207,9 @@ sub letters_word_said {
             # check they didn't use letters they don't have
             if (!$self->{words}->can_make($word, @{ $g->{letters} })) {
                 $self->say(
-                    address => 1,
+                    address => 0,
                     who => $args->{who},
-                    channel => $self->channel,
+                    channel => 'msg',
                     body => "you can't make that word, type !skip if you have no word; what is your word?",
                 );
                 return;
@@ -196,19 +219,21 @@ sub letters_word_said {
             # TODO: allow word if other players accept it even if not in dictionary?
             if (!$self->{words}->is_word($word)) {
                 $self->say(
-                    address => 1,
+                    address => 0,
                     who => $args->{who},
-                    channel => $self->channel,
+                    channel => 'msg',
                     body => "that's not a legit word, sorry",
                 );
 
-                $answerer->{letters_length} = 0;
-                $answerer->{letters_word} = '';
+                $p->{letters_length} = 0;
+                $p->{letters_word} = '';
+                $p->{need_word} = 0;
                 $self->next_word_answer;
                 return;
             }
 
-            $answerer->{letters_word} = $word;
+            $p->{letters_word} = $word;
+            $p->{need_word} = 0;
         }
 
         $self->say(
@@ -251,6 +276,16 @@ sub reset {
     $g->{consonant_stack} = [];
 
     $self->set_state('wait');
+}
+
+sub player_by_nick {
+    my ($self, $who) = @_;
+    my $g = $self->{game};
+
+    for my $p (@{ $g->{players} }) {
+        return $p if $p->{nick} eq $who;
+    }
+    return undef;
 }
 
 sub next_round {
@@ -373,11 +408,25 @@ sub next_word_answer {
     my ($self) = @_;
     my $g = $self->{game};
 
-    if (@{ $g->{player_answer_order} }) {
-        $self->set_state('letters_word');
-    } else {
+    $g->{need_words}--;
+
+    if ($g->{need_words} == 0) {
         # get players ordered by score
-        my @players = @{ $g->{players} };
+        my @players = sort { $b->{letters_length} <=> $a->{letters_length} } @{ $g->{players} };
+        for my $p (@players) {
+            if ($p->{letters_length} > 0) {
+                $self->say(
+                    channel => $self->channel,
+                    body => "$p->{nick}'s word was $p->{letters_word}",
+                );
+            } else {
+                $self->say(
+                    channel => $self->channel,
+                    body => "$p->{nick} had no valid word",
+                );
+            }
+        }
+
         my $maxlen = 0;
         for my $p (@players) {
             $maxlen = $p->{letters_length} if $p->{letters_length} > $maxlen;
@@ -517,50 +566,26 @@ sub begin_letters_timer {
     $self->schedule_tick($secs);
 }
 
-sub begin_letters_word {
-    my ($self) = @_;
-    my $g = $self->{game};
-
-    $g->{player_answerer} = shift @{ $g->{player_answer_order} };
-
-    # skip this player if they have 0 letters
-    if ($g->{player_answerer}{letters_length} == 0) {
-        $self->next_word_answer;
-        return;
-    }
-
-    # TODO: some sort of timeout
-
-    $self->say(
-        address => 1,
-        who => $g->{player_answerer}{nick},
-        channel => $self->channel,
-        body => "what is your $g->{player_answerer}{letters_length}-letter word?",
-    );
-}
-
 sub begin_letters_words {
     my ($self) = @_;
     my $g = $self->{game};
 
-    use sort 'stable';
+    $_->{need_word} = 1 for @{ $g->{players} };
+    $g->{need_words} = @{ $g->{players} };
 
-    # ask the player with the fewest letters first
-    # NOTE: the weird way of doing this ensures that if the players have the
-    # same number of letters, we ask the player whose turn it is first (relies
-    # on stable sort)
-    my @players;
-    my $i = $g->{letters_turn};
-    while (@players < @{ $g->{players} }) {
-        push @players, $g->{players}[$i];
-        $i++;
-        $i %= @{ $g->{players} };
+    $self->say(
+        channel => $self->channel,
+        body => "please send your words via private message",
+    );
+
+    for my $p (@{ $g->{players} }) {
+        $self->say(
+            address => 0,
+            who => $p->{nick},
+            channel => 'msg',
+            body => "what is your $p->{letters_length}-letter word?",
+        );
     }
-    $g->{player_answer_order} = [sort {
-        $a->{letters_length} <=> $b->{letters_length}
-    } @players];
-
-    $self->set_state('letters_word');
 }
 
 sub begin_pick_letters {
