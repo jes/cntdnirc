@@ -60,6 +60,7 @@ sub init {
 
 sub said {
     my ($self, $args) = @_;
+    my $g = $self->{game};
 
     $self->SUPER::said($args);
     return unless $self->channel eq $self->channel;
@@ -71,23 +72,26 @@ sub said {
         $cmd =~ s/^!//;
 
         $methods{$cmd}->($self, $args, @cmdargs) if $methods{$cmd};
+    } else {
+        my $state = $g->{state};
+        $said_in_state{$state}->($self, $args) if $said_in_state{$state};
     }
-
-    $said_in_state{$self->{game}{state}}->($self, $args) if $said_in_state{$self->{game}{state}};
 }
 
 sub tick {
     my ($self) = @_;
+    my $g = $self->{game};
 
-    return unless $self->{game}{timer_end};
+    my $timer_end = $g->{timer_end};
+    return unless $timer_end;
 
-    if (time >= $self->{game}{timer_end}) {
+    if (time >= $timer_end) {
         # timer finished, enter the next state
-        $self->set_state($self->{game}{timer_state});
+        $self->set_state($g->{timer_state});
         return 0;
     } else {
         # wait some more before firing again
-        return $self->{game}{timer_end} - time;
+        return $timer_end - time;
     }
 }
 
@@ -95,8 +99,10 @@ sub tick {
 
 sub pick_letters_said {
     my ($self, $args) = @_;
+    my $g = $self->{game};
 
-    return unless $args->{who} eq $self->{game}{letters_picker}{nick};
+    my $picker = $g->{letters_picker};
+    return unless $args->{who} eq $picker->{nick};
 
     $self->pick_letter('vowel') if $args->{body} =~ /^\s*v(owel)?\s*/;
     $self->pick_letter('consonant') if $args->{body} =~ /^\s*c(onsonant)?\s*/;
@@ -104,12 +110,14 @@ sub pick_letters_said {
 
 sub letters_answers_said {
     my ($self, $args) = @_;
+    my $g = $self->{game};
 
-    return unless $args->{who} eq $self->{game}{letters_answerer}{nick};
+    my $answerer = $g->{letters_answerer};
+    return unless $args->{who} eq $answerer->{nick};
 
     if ($args->{body} =~ /^\s*(\d+)\s*$/) {
-        $self->{game}{letters_answerer}{letters_length} = $1;
-        if (++$self->{game}{letters_answers_done} == @{ $self->{game}{players} }) {
+        $answerer->{letters_length} = $1;
+        if (++$g->{letters_answers_done} == @{ $g->{players} }) {
             $self->set_state('letters_words');
         } else {
             $self->set_state('letters_answers');
@@ -119,8 +127,10 @@ sub letters_answers_said {
 
 sub letters_word_said {
     my ($self, $args) = @_;
+    my $g = $self->{game};
 
-    return unless $args->{who} eq $self->{game}{player_answerer}{nick};
+    my $answerer = $g->{player_answerer};
+    return unless $args->{who} eq $answerer->{nick};
 
     if ($args->{body} =~ /^\s*(\w+)\s*$/) {
         # TODO: validate length
@@ -132,7 +142,7 @@ sub letters_word_said {
             body => 'thanks',
         );
 
-        if (@{ $self->{game}{player_answer_order} }) {
+        if (@{ $g->{player_answer_order} }) {
             $self->set_state('letters_word');
         } else {
             # TODO: announce the scores
@@ -146,21 +156,22 @@ sub letters_word_said {
 sub reset {
     my ($self) = @_;
 
-    $self->{game} = {};
-    $self->{game}{letters_turn} = -1;
-    $self->{game}{numbers_turn} = -1;
+    my $g = $self->{game} = {};
+    $g->{letters_turn} = -1;
+    $g->{numbers_turn} = -1;
 
     # TODO: allow different probabilities in different formats (e.g. bastard mode)
-    $self->{game}{vowel_stack} = [];
-    $self->{game}{consonant_stack} = [];
+    $g->{vowel_stack} = [];
+    $g->{consonant_stack} = [];
 
     $self->set_state('wait');
 }
 
 sub next_round {
     my ($self) = @_;
+    my $g = $self->{game};
 
-    my $next = shift @{ $self->{game}{format}{rounds} };
+    my $next = shift @{ $g->{format}{rounds} };
     if (!defined $next) {
         # TODO: game ends
         $self->reset;
@@ -176,31 +187,33 @@ sub next_round {
 
 sub has_joined {
     my ($self, $who) = @_;
+    my $g = $self->{game};
 
-    return 1 if grep { $_->{nick} eq $who } @{ $self->{game}{players} };
+    return 1 if grep { $_->{nick} eq $who } @{ $g->{players} };
     return 0;
 }
 
 sub pick_letter {
     my ($self, $type) = @_;
+    my $g = $self->{game};
 
     my $l;
 
     if ($type eq 'vowel') {
-        $self->{game}{vowel_stack} = [shuffle @vowels] unless @{ $self->{game}{vowel_stack} };
-        $l = shift @{ $self->{game}{vowel_stack} };
+        $g->{vowel_stack} = [shuffle @vowels] unless @{ $g->{vowel_stack} };
+        $l = shift @{ $g->{vowel_stack} };
     } else {
-        $self->{game}{consonant_stack} = [shuffle @consonants] unless @{ $self->{game}{consonant_stack} };
-        $l = shift @{ $self->{game}{consonant_stack} };
+        $g->{consonant_stack} = [shuffle @consonants] unless @{ $g->{consonant_stack} };
+        $l = shift @{ $g->{consonant_stack} };
     }
 
-    push @{ $self->{game}{letters} }, $l;
+    push @{ $g->{letters} }, $l;
     $self->say(
         channel => $self->channel,
-        body => join(' ', map { uc $_ } @{ $self->{game}{letters} }),
+        body => join(' ', map { uc $_ } @{ $g->{letters} }),
     );
 
-    if (@{ $self->{game}{letters} } == $self->{game}{format}{num_letters}) {
+    if (@{ $g->{letters} } == $g->{format}{num_letters}) {
         $self->set_state('letters_timer');
     } else {
         $self->set_state('pick_letters');
@@ -211,16 +224,17 @@ sub pick_letter {
 
 sub begin_game {
     my ($self, $args) = @_;
+    my $g = $self->{game};
 
-    return unless $self->{game}{state} eq 'join';
+    return unless $g->{state} eq 'join';
     return unless $self->has_joined($args->{who});
-    return unless @{ $self->{game}{players} };
+    return unless @{ $g->{players} };
 
-    $self->{game}{players} = [shuffle @{ $self->{game}{players} }];
+    $g->{players} = [shuffle @{ $g->{players} }];
 
     $self->say(
         channel => $self->channel,
-        body => "beginning game with " . join(', ', map { $_->{nick} } @{ $self->{game}{players} }),
+        body => "beginning game with " . join(', ', map { $_->{nick} } @{ $g->{players} }),
     );
 
     $self->next_round;
@@ -228,11 +242,12 @@ sub begin_game {
 
 sub join_game {
     my ($self, $args) = @_;
+    my $g = $self->{game};
 
-    return unless $self->{game}{state} eq 'join';
+    return unless $g->{state} eq 'join';
     return if $self->has_joined($args->{who});
 
-    push @{ $self->{game}{players} }, Cntdn::Player->new(
+    push @{ $g->{players} }, Cntdn::Player->new(
         nick => $args->{who},
     );
 
@@ -240,12 +255,13 @@ sub join_game {
         address => 1,
         who => $args->{who},
         channel => $self->channel,
-        body => "you've joined the game (now got " . (scalar @{ $self->{game}{players} }) . " players)",
+        body => "you've joined the game (now got " . (scalar @{ $g->{players} }) . " players)",
     );
 }
 
 sub reset_game {
     my ($self, $args) = @_;
+    my $g = $self->{game};
 
     return unless $self->is_op($self->channel, $args->{who});
 
@@ -261,32 +277,36 @@ sub reset_game {
 
 sub start_game {
     my ($self, $args, @cmdargs) = @_;
+    my $g = $self->{game};
 
-    return unless $self->{game}{state} eq 'wait';
+    return unless $g->{state} eq 'wait';
 
     if (@cmdargs) {
         # TODO: start a game with specified format
     }
 
     # TODO: get formats from cfg
-    $self->{game}{format}{rounds} = [qw(
-        letters letters letters letters numbers letters letters letters letters
-        numbers letters letters letters numbers conundrum
-    )];
-    $self->{game}{format}{num_letters} = 9;
-    $self->{game}{format}{letters_time} = 3;
+    $g->{format} = {
+        rounds => [qw(
+            letters letters letters letters numbers letters letters letters letters
+            numbers letters letters letters numbers conundrum
+        )],
+        num_letters => 9,
+        letters_time => 3,
+    };
     $self->set_state('join');
     # TODO: start 5 minute timer to ->reset if nobody joins or begin if anyone does
 }
 
 sub show_state {
     my ($self, $args) = @_;
+    my $g = $self->{game};
 
     $self->say(
         address => 1,
         who => $args->{who},
         channel => $self->channel,
-        body => "state=$self->{game}{state}",
+        body => "state=$g->{state}",
     );
 }
 
@@ -294,13 +314,15 @@ sub show_state {
 
 sub set_state {
     my ($self, $state) = @_;
+    my $g = $self->{game};
 
-    $self->{game}{state} = $state;
+    $g->{state} = $state;
     $begin_state{$state}->($self) if $begin_state{$state};
 }
 
 sub begin_join {
     my ($self) = @_;
+    my $g = $self->{game};
 
     $self->say(
         channel => $self->channel,
@@ -310,15 +332,17 @@ sub begin_join {
 
 sub begin_letters {
     my ($self) = @_;
+    my $g = $self->{game};
 
-    $self->{game}{letters_turn}++;
-    $self->{game}{letters_turn} %= @{ $self->{game}{players} };
-    $self->{game}{letters_picker} = $self->{game}{players}[$self->{game}{letters_turn}];
-    $self->{game}{letters} = [];
+    my @players = @{ $g->{players} };
+    $g->{letters_turn}++;
+    $g->{letters_turn} %= @players;
+    $g->{letters_picker} = $players[$g->{letters_turn}];
+    $g->{letters} = [];
 
     $self->say(
         channel => $self->channel,
-        body => "Letters round. It's $self->{game}{letters_picker}{nick}'s turn to pick letters.",
+        body => "Letters round. It's $g->{letters_picker}{nick}'s turn to pick letters.",
     );
 
     $self->set_state('pick_letters');
@@ -326,14 +350,16 @@ sub begin_letters {
 
 sub begin_letters_answers {
     my ($self) = @_;
+    my $g = $self->{game};
 
-    $self->{game}{letters_answers_turn}++;
-    $self->{game}{letters_answers_turn} %= @{ $self->{game}{players} };
-    $self->{game}{letters_answerer} = $self->{game}{players}[$self->{game}{letters_answers_turn}];
+    my @players = @{ $g->{players} };
+    $g->{letters_answers_turn}++;
+    $g->{letters_answers_turn} %= @players;
+    $g->{letters_answerer} = $players[$g->{letters_answers_turn}];
 
     $self->say(
         address => 1,
-        who => $self->{game}{letters_answerer}{nick},
+        who => $g->{letters_answerer}{nick},
         channel => $self->channel,
         body => 'how many letters?',
     );
@@ -341,68 +367,75 @@ sub begin_letters_answers {
 
 sub begin_letters_end {
     my ($self) = @_;
+    my $g = $self->{game};
 
     $self->say(
         channel => $self->channel,
         body => "Time's up!",
     );
 
-    $self->{game}{letters_answers} = [(undef) x @{ $self->{game}{players} }];
-    $self->{game}{letters_answers_done} = 0;
-    $self->{game}{letters_answers_turn} = $self->{game}{letters_turn} - 1;
+    $g->{letters_answers} = [(undef) x @{ $g->{players} }];
+    $g->{letters_answers_done} = 0;
+    $g->{letters_answers_turn} = $g->{letters_turn} - 1;
 
     $self->set_state('letters_answers');
 }
 
 sub begin_letters_timer {
     my ($self) = @_;
+    my $g = $self->{game};
+
+    my $secs = $g->{format}{letters_time};
 
     $self->say(
         channel => $self->channel,
-        body => "$self->{game}{format}{letters_time} seconds to solve those letters...",
+        body => "$secs seconds to solve those letters...",
     );
-    $self->{game}{timer_end} = time + $self->{game}{format}{letters_time};
-    $self->{game}{timer_state} = 'letters_end';
+    $g->{timer_end} = time + $secs;
+    $g->{timer_state} = 'letters_end';
 
-    $self->schedule_tick($self->{game}{format}{letters_time});
+    $self->schedule_tick($secs);
 }
 
 sub begin_letters_word {
     my ($self) = @_;
+    my $g = $self->{game};
 
-    $self->{game}{player_answer_idx} = shift @{ $self->{game}{player_answer_order} };
-    $self->{game}{player_answerer} = $self->{game}{players}[$self->{game}{player_answer_idx}];
+    $g->{player_answer_idx} = shift @{ $g->{player_answer_order} };
+    $g->{player_answerer} = $g->{players}[$g->{player_answer_idx}];
 
     # TODO: some sort of timeout
 
     $self->say(
         address => 1,
-        who => $self->{game}{player_answerer}{nick},
+        who => $g->{player_answerer}{nick},
         channel => $self->channel,
-        body => "what is your $self->{game}{player_answerer}{letters_length}-letter word?",
+        body => "what is your $g->{player_answerer}{letters_length}-letter word?",
     );
 }
 
 sub begin_letters_words {
     my ($self) = @_;
+    my $g = $self->{game};
 
     # ask the player with the fewest letters first
-    # TODO:  test all the stuff that involves multiplayer better
-    $self->{game}{player_answer_order} = [sort {
-        $self->{game}{players}[$a]{letters_length} <=> $self->{game}{players}[$b]{letters_length}
-    } (0 .. @{ $self->{game}{players} }-1)];
+    my @players = @{ $g->{players} };
+    $g->{player_answer_order} = [sort {
+        $players[$a]{letters_length} <=> $players[$b]{letters_length}
+    } (0 .. @players-1)];
 
     $self->set_state('letters_word');
 }
 
 sub begin_pick_letters {
     my ($self) = @_;
+    my $g = $self->{game};
 
     # TODO: some sort of timeout
     # TODO: maximum of 6 consonants; maximum of 5 vowels (from format)
     $self->say(
         address => 1,
-        who => $self->{game}{letters_picker}{nick},
+        who => $g->{letters_picker}{nick},
         channel => $self->channel,
         body => "vowel or consonant? [v/c]",
     );
