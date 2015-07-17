@@ -141,7 +141,7 @@ sub letters_answers_said {
                 address => 1,
                 who => $args->{who},
                 channel => $self->channel,
-                body => "that's too many letters, type 0 if you have no word",
+                body => "that's too many letters, type 0 if you have no word; how many letters?",
             );
             return;
         }
