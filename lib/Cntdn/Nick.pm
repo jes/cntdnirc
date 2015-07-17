@@ -237,10 +237,8 @@ sub letters_words_pm {
         }
 
         $self->say(
-            address => 1,
-            who => $args->{who},
             channel => $self->channel,
-            body => 'thanks',
+            body => "received $args->{who}'s word",
         );
 
         $self->next_word_answer;
