@@ -442,6 +442,8 @@ sub next_word_answer {
         $self->delay(3, sub {
             # get players ordered by score
             my @players = sort { $b->{letters_length} <=> $a->{letters_length} } @{ $g->{players} };
+            my $maxlen = $players[0]{letters_length};
+            my @winners;
             for my $p (@players) {
                 if ($p->{letters_length} > 0) {
                     $self->say(
@@ -454,12 +456,16 @@ sub next_word_answer {
                         body => "$p->{nick} had no valid word",
                     );
                 }
+
+                push @winners, $p if $p->{letters_length} == $maxlen;
             }
 
-            my $maxlen = 0;
-            for my $p (@players) {
-                $maxlen = $p->{letters_length} if $p->{letters_length} > $maxlen;
-            }
+            # announce winners
+            # TODO: "it's a tie" if everyone scored the same
+            $self->say(
+                channel => $self->channel,
+                body => "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { $_->{nick} } @winners) . "!",
+            );
 
             # calculate points
             my $points = $maxlen;
@@ -470,7 +476,7 @@ sub next_word_answer {
                 $p->{score} += $points if $p->{letters_length} == $maxlen;
             }
 
-            # TODO: announce round winner(s), congratulate
+            # TODO: show best word
 
             $self->show_scores;
 
@@ -596,6 +602,7 @@ sub begin_letters_timer {
         channel => $self->channel,
         body => "$secs seconds to solve those letters...",
     );
+    # TODO: show 20s, 10s, 3,2,1 (timer)
     $self->delay($secs, sub {
         $self->set_state('letters_end');
     });
