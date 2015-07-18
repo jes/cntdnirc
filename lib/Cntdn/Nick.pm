@@ -399,7 +399,7 @@ sub start_game {
         letters_time => 3, # secs:
     };
     $self->set_state('join');
-    # TODO: start 5 minute timer to ->reset if nobody joins or begin if anyone does
+    # TODO: start 5 minute timer to ->reset if nobody joins or begin if anyone does (timer)
 }
 
 sub next_word_answer {
@@ -409,7 +409,7 @@ sub next_word_answer {
     $g->{need_words}--;
 
     if ($g->{need_words} == 0) {
-        # TODO: build suspense a little?
+        # TODO: build suspense a little? (timer)
 
         # get players ordered by score
         my @players = sort { $b->{letters_length} <=> $a->{letters_length} } @{ $g->{players} };
@@ -443,7 +443,7 @@ sub next_word_answer {
 
         $self->show_scores;
 
-        # TODO: bit of a delay before starting the next round
+        # TODO: bit of a delay before starting the next round (timer)
 
         $self->next_round;
     }
@@ -527,7 +527,7 @@ sub begin_letters_answers {
     $g->{letters_answers_turn} %= @players;
     $g->{letters_answerer} = $players[$g->{letters_answers_turn}];
 
-    # TODO: some sort of timeout
+    # TODO: some sort of timeout (timer)
 
     $self->say(
         address => 1,
@@ -595,7 +595,7 @@ sub begin_pick_letters {
     my ($self) = @_;
     my $g = $self->{game};
 
-    # TODO: some sort of timeout
+    # TODO: some sort of timeout (timer)
     # TODO: maximum of 6 consonants; maximum of 5 vowels (from format)
     $self->say(
         address => 1,
