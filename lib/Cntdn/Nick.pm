@@ -90,16 +90,22 @@ sub said {
 sub tick {
     my ($self) = @_;
 
+    print STDERR "[tick] Tick.\n";
+
     my $timer_end = $self->{timer_end};
     return unless $timer_end;
 
     if (time >= $timer_end) {
+        print STDERR "[tick] Ready for tick!\n";
         # timer finished, run the callback
-        $self->{timer_cb}->() if $self->{timer_cb};
+        my $cb = $self->{timer_cb};
         $self->{timer_cb} = undef;
+        print STDERR "[tick] " . ($cb ? 'have' : 'no') . " callback\n";
+        $cb->() if $cb;
         return 0;
     } else {
         # wait some more before firing again
+        print STDERR "[tick] Not ready for tick\n";
         return $timer_end - time;
     }
 }
@@ -449,11 +455,14 @@ sub next_word_answer {
                 $p->{score} += $points if $p->{letters_length} == $maxlen;
             }
 
+            # TODO: announce round winner(s), congratulate
+
             $self->show_scores;
 
-            # TODO: bit of a delay before starting the next round (timer)
-
-            $self->next_round;
+            # bit of a delay before starting the next round
+            $self->delay(3, sub {
+                $self->next_round;
+            });
         });
     }
 }
