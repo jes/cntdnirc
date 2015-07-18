@@ -476,7 +476,12 @@ sub next_word_answer {
                 $p->{score} += $points if $p->{letters_length} == $maxlen;
             }
 
-            # TODO: show best word
+            # show best word
+            # TODO: mention if it's longer than the players got (if the same, show an alternative if possible)
+            $self->say(
+                channel => $self->channel,
+                body => "Best word available was " . $self->{words}->best_word(@{ $g->{letters} }),
+            );
 
             $self->show_scores;
 
