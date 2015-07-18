@@ -6,7 +6,8 @@ use warnings;
 # nick
 # letters_length
 # letters_word
-# numbers_answer
+# numbers_sum
+# numbers_expr
 # score
 
 sub new {

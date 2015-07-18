@@ -18,10 +18,12 @@ my @consonants = split //, 'BBCCCDDDDDDFFGGGHHJKLLLLLMMMMNNNNNNNNPPPPQRRRRRRRRRS
 # letters - initialise letters round and enter pick_letters
 # pick_letters - pick the letters
 # letters_timer - wait 30s
-# letters_end - end of timer, and enter letters_answers
 # letters_answers - collect the lengths of the words
-# letters_words - order the players and enter letters_word
-# letters_word - collect the player words
+# letters_words - collect the players' words
+# numbers - initialise numbers round and ask for numbers
+# numbers_timer - wait 30s
+# numbers_answers - collect the numbers they reached
+# numbers_sums - collect the players' sums
 
 # only for methods that make sense in any state (or at least many states)
 my %methods = (
@@ -31,26 +33,35 @@ my %methods = (
 
 my %begin_state = (
     join => \&begin_join,
+
     letters => \&begin_letters,
-    letters_answers => \&begin_letters_answers,
-    letters_end => \&begin_letters_end,
-    letters_timer => \&begin_letters_timer,
-    letters_word => \&begin_letters_word,
-    letters_words => \&begin_letters_words,
     pick_letters => \&begin_pick_letters,
+    letters_timer => \&begin_letters_timer,
+    letters_answers => \&begin_letters_answers,
+    letters_words => \&begin_letters_words,
+
+    numbers => \&begin_numbers,
+    numbers_timer => \&begin_numbers_timer,
+    numbers_answers => \&begin_numbers_answers,
+    numbers_sums => \&begin_numbers_sums,
 );
 
 my %said_in_state = (
     pick_letters => \&pick_letters_said,
     letters_answers => \&letters_answers_said,
-#    letters_word => \&letters_word_said,
     letters_words => \&letters_words_said,
+
+    numbers => \&numbers_said,
+    numbers_answers => \&numbers_answers_said,
+    numbers_sums => \&numbers_sums_said,
+
     wait => \&wait_said,
     join => \&join_said,
 );
 
 my %pm_in_state = (
     letters_words => \&letters_words_pm,
+    numbers_sums => \&numbers_sums_pm,
 );
 
 ### Bot::BasicBot hooks:
@@ -251,6 +262,117 @@ sub letters_words_pm {
     }
 }
 
+sub numbers_said {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    my $picker = $g->{numbers_picker};
+    return unless $args->{who} eq $picker->{nick};
+
+    if ($args->{body} =~ /^\s*(\d+)\s*$/) {
+        my $numlarge = $1;
+        if ($numlarge < $g->{format}{min_large}) {
+            $self->say(
+                address => 1,
+                who => $args->{who},
+                channel => $self->channel,
+                body => "must have at least $g->{format}{min_large} large; how many large? [$g->{format}{min_large}-$g->{format}{max_large}]",
+            );
+        } elsif ($numlarge > $g->{format}{max_large}) {
+            $self->say(
+                address => 1,
+                who => $args->{who},
+                channel => $self->channel,
+                body => "must have at most $g->{format}{max_large} large; how many large? [$g->{format}{min_large}-$g->{format}{max_large}]",
+            );
+        } else {
+            $self->pick_numbers($numlarge);
+        }
+    }
+}
+
+sub numbers_answers_said {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    my $answerer = $g->{numbers_answerer};
+    return unless $args->{who} eq $answerer->{nick};
+
+    if ($args->{body} =~ /^\s*(\d+)\s*$/) {
+        my $num = $1;
+
+        $answerer->{numbers_sum} = $num;
+        if (++$g->{numbers_answers_done} == @{ $g->{players} }) {
+            $self->set_state('numbers_sums');
+        } else {
+            $self->set_state('numbers_answers');
+        }
+    }
+}
+
+sub numbers_sums_said {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    my $p = $self->player_by_nick($args->{who});
+    return unless $p && $p->{need_sum};
+
+    $self->say(
+        address => 1,
+        who => $args->{who},
+        channel => $self->channel,
+        body => "please send your answer via private message",
+    );
+
+}
+
+sub numbers_sums_pm {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    my $p = $self->player_by_nick($args->{who});
+    return unless $p && $p->{need_sum};
+
+    if ($args->{body} =~ /^\s*!skip\s*$/) {
+        $p->{numbers_sum} = undef;
+        $p->{numbers_expr} = undef;
+        return;
+    }
+
+    my $failure = 'invalid expression';
+
+    my $expr = $args->{body};
+    # TODO: check they don't use numbers they don't have
+    goto fail if $expr =~ /[^0-9+*\-\/\(\) ]/ || $expr =~ /\*\*/;
+
+    # TODO: do we need more sanitising?
+    my $r = eval($expr);
+    goto fail if $@;
+
+    if ($r != $p->{numbers_sum}) {
+        $failure = "that doesn't make that";
+        goto fail;
+    }
+
+    $p->{numbers_expr} = $expr;
+
+    $self->say(
+        channel => $self->channel,
+        body => "received $args->{who}'s answer",
+    );
+
+    $self->next_sum_answer;
+
+    return;
+fail:
+    $self->say(
+        address => 0,
+        who => $args->{who},
+        channel => 'msg',
+        body => "$failure, type !skip if you have no answer; what is your answer?",
+    );
+}
+
 sub wait_said {
     my ($self, $args) = @_;
     my $g = $self->{game};
@@ -362,6 +484,27 @@ sub pick_letter {
     push @{ $g->{letters} }, $l;
 }
 
+sub pick_numbers {
+    my ($self, $numlarge) = @_;
+    my $g = $self->{game};
+
+    # TODO: implement this
+    $self->say(
+        channel => $self->channel,
+        body => "Would pick $numlarge large numbers and " . ($g->{format}{num_numbers} - $numlarge) . " small",
+    );
+
+    $self->delay(3, sub {
+        # TODO: pick target
+        $g->{numbers_target} = 123;
+        $self->say(
+            channel => $self->channel,
+            body => "The target number is $g->{numbers_target}",
+        );
+        $self->set_state('numbers_timer');
+    });
+}
+
 sub begin_game {
     my ($self) = @_;
     my $g = $self->{game};
@@ -407,13 +550,18 @@ sub start_game {
 
     # TODO: get formats from cfg (maybe with specified format)
     $g->{format} = {
-        rounds => [qw(letters letters letters letters)],
+        rounds => [qw(numbers letters letters letters letters)],
         #[qw(
         #    letters letters letters letters numbers letters letters letters letters
         #    numbers letters letters letters numbers conundrum
         #)],
         num_letters => 9,
-        letters_time => 3, # secs:
+        letters_time => 3, # secs
+
+        num_numbers => 6,
+        min_large => 0,
+        max_large => 4,
+        numbers_time => 3, # secs
     };
     $self->set_state('join');
 
@@ -436,63 +584,123 @@ sub next_word_answer {
     my $g = $self->{game};
 
     $g->{need_words}--;
+    return unless $g->{need_words} == 0;
 
-    if ($g->{need_words} == 0) {
-        # give 3 seconds to build suspense and allow players to switch back to the channel
+    # give 3 seconds to build suspense and allow players to switch back to the channel
+    $self->delay(3, sub {
+        # get players ordered by score
+        my @players = sort { $b->{letters_length} <=> $a->{letters_length} } @{ $g->{players} };
+        my $maxlen = $players[0]{letters_length};
+        my @winners;
+        for my $p (@players) {
+            if ($p->{letters_length} > 0) {
+                $self->say(
+                    channel => $self->channel,
+                    body => "$p->{nick}'s word was $p->{letters_word}",
+                );
+            } else {
+                $self->say(
+                    channel => $self->channel,
+                    body => "$p->{nick} had no valid word",
+                );
+            }
+
+            push @winners, $p if $p->{letters_length} == $maxlen;
+        }
+
+        # announce winners
+        # TODO: "it's a tie" if everyone scored the same
+        # TODO: not a "winner" if nobody got a word
+        $self->say(
+            channel => $self->channel,
+            body => "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { $_->{nick} } @winners) . "!",
+        );
+
+        # calculate points
+        my $points = $maxlen;
+        $points *= 2 if $maxlen == $g->{format}{num_letters};
+
+        # add points to all the players with the longest word
+        $_->{score} += $points for @winners;
+
+        # show best word
+        # TODO: mention if it's longer than the players got (if the same, show an alternative if possible)
+        $self->say(
+            channel => $self->channel,
+            body => "Best word available was " . $self->{words}->best_word(@{ $g->{letters} }),
+        );
+
+        $self->show_scores;
+
+        # bit of a delay before starting the next round
         $self->delay(3, sub {
-            # get players ordered by score
-            my @players = sort { $b->{letters_length} <=> $a->{letters_length} } @{ $g->{players} };
-            my $maxlen = $players[0]{letters_length};
-            my @winners;
-            for my $p (@players) {
-                if ($p->{letters_length} > 0) {
-                    $self->say(
-                        channel => $self->channel,
-                        body => "$p->{nick}'s word was $p->{letters_word}",
-                    );
-                } else {
-                    $self->say(
-                        channel => $self->channel,
-                        body => "$p->{nick} had no valid word",
-                    );
-                }
-
-                push @winners, $p if $p->{letters_length} == $maxlen;
-            }
-
-            # announce winners
-            # TODO: "it's a tie" if everyone scored the same
-            $self->say(
-                channel => $self->channel,
-                body => "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { $_->{nick} } @winners) . "!",
-            );
-
-            # calculate points
-            my $points = $maxlen;
-            $points *= 2 if $maxlen == $g->{format}{num_letters};
-
-            # add points to all the players with the longest word
-            for my $p (@players) {
-                $p->{score} += $points if $p->{letters_length} == $maxlen;
-            }
-
-            # show best word
-            # TODO: mention if it's longer than the players got (if the same, show an alternative if possible)
-            $self->say(
-                channel => $self->channel,
-                body => "Best word available was " . $self->{words}->best_word(@{ $g->{letters} }),
-            );
-
-            $self->show_scores;
-
-            # bit of a delay before starting the next round
-            $self->delay(3, sub {
-                $self->next_round;
-            });
+            $self->next_round;
         });
-    }
+    });
 }
 
+sub next_sum_answer {
+    my ($self) = @_;
+    my $g = $self->{game};
+
+    $g->{need_sums}--;
+    return unless $g->{need_sums} == 0;
+
+    $self->delay(3, sub {
+        # get players ordered by score
+        $_->{numbers_diff} = $_->{numbers_sum} ? abs($g->{numbers_target} - $_->{numbers_sum}) : 2**64 for @{ $g->{players} };
+        my @players = sort { $a->{numbers_diff} <=> $b->{numbers_diff} } @{ $g->{players} };
+        my $bestdiff = $players[0]{numbers_diff};
+        my @winners;
+        for my $p (@players) {
+            if ($p->{numbers_sum}) {
+                $self->say(
+                    channel => $self->{channel},
+                    body => "$p->{nick}'s answer was $p->{numbers_expr}",
+                );
+            } else {
+                $self->say(
+                    channel => $self->{channel},
+                    body => "$p->{nick} had no valid answer",
+                );
+            }
+
+            push @winners, $p if $p->{numbers_diff} == $bestdiff;
+        }
+
+        # announce winners
+        # TODO: "it's a tie" if everyone scored the same
+        # TODO: not a "winner" if nobody got a word
+        $self->say(
+            channel => $self->channel,
+            body => "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { $_->{nick} } @winners) . "!",
+        );
+
+        # calculate points
+        my $points = 0;
+        $points = 10 if $bestdiff == 0;
+        $points = 7 if $bestdiff > 0 && $bestdiff <= 5;
+        $points = 5 if $bestdiff > 5 && $bestdiff <= 10;
+
+        # add points to all the winners
+        $_->{score} += $points for @winners;
+
+        # TODO: show best answer
+        # TODO: mention if it's closer than players (if the same, show an alternative? by magic)
+        $self->say(
+            channel => $self->channel,
+            body => "Best answer was ???",
+        );
+
+        $self->show_scores;
+
+        # bit of a delay before starting the next round
+        $self->delay(3, sub {
+            $self->next_round;
+        });
+
+    });
+}
 
 ### command handlers:
 
@@ -562,39 +770,18 @@ sub begin_letters {
     $self->set_state('pick_letters');
 }
 
-sub begin_letters_answers {
+sub begin_pick_letters {
     my ($self) = @_;
     my $g = $self->{game};
 
-    my @players = @{ $g->{players} };
-    $g->{letters_answers_turn}++;
-    $g->{letters_answers_turn} %= @players;
-    $g->{letters_answerer} = $players[$g->{letters_answers_turn}];
-
-    # TODO: some sort of timeout (timer) (needs cancelling)
-
+    # TODO: some sort of timeout (timer) (needs cancelling - pick random letters)
+    # TODO: maximum of 6 consonants; maximum of 5 vowels (from format)
     $self->say(
         address => 1,
-        who => $g->{letters_answerer}{nick},
+        who => $g->{letters_picker}{nick},
         channel => $self->channel,
-        body => 'how many letters?',
+        body => "vowel or consonant? [v/c]",
     );
-}
-
-sub begin_letters_end {
-    my ($self) = @_;
-    my $g = $self->{game};
-
-    $self->say(
-        channel => $self->channel,
-        body => "Time's up!",
-    );
-
-    $g->{letters_answers} = [(undef) x @{ $g->{players} }];
-    $g->{letters_answers_done} = 0;
-    $g->{letters_answers_turn} = $g->{letters_turn} - 1;
-
-    $self->set_state('letters_answers');
 }
 
 sub begin_letters_timer {
@@ -609,8 +796,36 @@ sub begin_letters_timer {
     );
     # TODO: show 20s, 10s, 3,2,1 (timer)
     $self->delay($secs, sub {
-        $self->set_state('letters_end');
+        $self->say(
+            channel => $self->channel,
+            body => "Time's up!",
+        );
+
+        $g->{letters_answers} = [(undef) x @{ $g->{players} }];
+        $g->{letters_answers_done} = 0;
+        $g->{letters_answers_turn} = $g->{letters_turn} - 1;
+
+        $self->set_state('letters_answers');
     });
+}
+
+sub begin_letters_answers {
+    my ($self) = @_;
+    my $g = $self->{game};
+
+    my @players = @{ $g->{players} };
+    $g->{letters_answers_turn}++;
+    $g->{letters_answers_turn} %= @players;
+    $g->{letters_answerer} = $players[$g->{letters_answers_turn}];
+
+    # TODO: some sort of timeout (timer) (needs cancelling - set their length to 0)
+
+    $self->say(
+        address => 1,
+        who => $g->{letters_answerer}{nick},
+        channel => $self->channel,
+        body => 'how many letters?',
+    );
 }
 
 sub begin_letters_words {
@@ -620,7 +835,7 @@ sub begin_letters_words {
     $_->{need_word} = 1 for @{ $g->{players} };
     $g->{need_words} = @{ $g->{players} };
 
-    # TODO: some sort of timeout (timer) (needs cancelling)
+    # TODO: some sort of timeout (timer) (needs cancelling - set their word to '' )
 
     $self->say(
         channel => $self->channel,
@@ -637,18 +852,95 @@ sub begin_letters_words {
     }
 }
 
-sub begin_pick_letters {
+sub begin_numbers {
     my ($self) = @_;
     my $g = $self->{game};
 
-    # TODO: some sort of timeout (timer) (needs cancelling)
-    # TODO: maximum of 6 consonants; maximum of 5 vowels (from format)
+    my @players = @{ $g->{players} };
+    $g->{numbers_turn}++;
+    $g->{numbers_turn} %= @players;
+    $g->{numbers_picker} = $players[$g->{numbers_turn}];
+    $g->{numbers} = [];
+
+    $self->say(
+        channel => $self->channel,
+        body => "Numbers round. It's $g->{numbers_picker}{nick}'s turn to pick numbers.",
+    );
+
     $self->say(
         address => 1,
-        who => $g->{letters_picker}{nick},
+        who => $g->{numbers_picker}{nick},
         channel => $self->channel,
-        body => "vowel or consonant? [v/c]",
+        body => "need $g->{format}{num_numbers} numbers; how many large? [$g->{format}{min_large}-$g->{format}{max_large}]",
     );
+}
+
+sub begin_numbers_timer {
+    my ($self) = @_;
+    my $g = $self->{game};
+
+    my $secs = $g->{format}{numbers_time};
+
+    $self->say(
+        channel => $self->channel,
+        body => "$secs seconds to solve those numbers...",
+    );
+    # TODO: show 20s, 10s, 3,2,1 (timer)
+    $self->delay($secs, sub {
+        $self->say(
+            channel => $self->channel,
+            body => "Time's up!",
+        );
+
+        $g->{numbers_answers} = [(undef) x @{ $g->{players} }];
+        $g->{numbers_answers_done} = 0;
+        $g->{numbers_answers_turn} = $g->{numbers_turn} - 1;
+
+        $self->set_state('numbers_answers');
+    });
+}
+
+sub begin_numbers_answers {
+    my ($self) = @_;
+    my $g = $self->{game};
+
+    my @players = @{ $g->{players} };
+    $g->{numbers_answers_turn}++;
+    $g->{numbers_answers_turn} %= @players;
+    $g->{numbers_answerer} = $players[$g->{numbers_answers_turn}];
+
+    # TODO: some sort of timeout (timer) (needs cancelling - set their number to invalid)
+
+    $self->say(
+        address => 1,
+        who => $g->{numbers_answerer}{nick},
+        channel => $self->channel,
+        body => 'what number did you reach?',
+    );
+}
+
+sub begin_numbers_sums {
+    my ($self) = @_;
+    my $g = $self->{game};
+
+    $_->{need_sum} = 1 for @{ $g->{players} };
+    $g->{need_sums} = @{ $g->{players} };
+
+    # TODO: some sort of timeout (timer) (needs cancelling - set their sum to invalid)
+
+    $self->say(
+        channel => $self->channel,
+        body => "please send your answers via private message",
+    );
+
+    for my $p (@{ $g->{players} }) {
+        $self->say(
+            address => 0,
+            who => $p->{nick},
+            channel => 'msg',
+            body => "what is your $p->{numbers_sum} answer? (use infix notation)",
+        );
+    }
 }
 
 1;
