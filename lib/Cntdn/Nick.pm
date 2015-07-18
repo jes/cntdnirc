@@ -89,15 +89,14 @@ sub said {
 
 sub tick {
     my ($self) = @_;
-    my $g = $self->{game};
 
-    my $timer_end = $g->{timer_end};
+    my $timer_end = $self->{timer_end};
     return unless $timer_end;
 
     if (time >= $timer_end) {
         # timer finished, run the callback
-        $g->{timer_cb}->() if $g->{timer_cb};
-        $g->{timer_cb} = undef;
+        $self->{timer_cb}->() if $self->{timer_cb};
+        $self->{timer_cb} = undef;
         return 0;
     } else {
         # wait some more before firing again
@@ -263,6 +262,7 @@ sub join_said {
 
 ### game state management:
 
+# XXX: can only have one timer at a time
 sub delay {
     my ($self, $secs, $cb) = @_;
     $self->{timer_end} = time + $secs;
@@ -417,43 +417,44 @@ sub next_word_answer {
     $g->{need_words}--;
 
     if ($g->{need_words} == 0) {
-        # TODO: build suspense a little? (timer)
-
-        # get players ordered by score
-        my @players = sort { $b->{letters_length} <=> $a->{letters_length} } @{ $g->{players} };
-        for my $p (@players) {
-            if ($p->{letters_length} > 0) {
-                $self->say(
-                    channel => $self->channel,
-                    body => "$p->{nick}'s word was $p->{letters_word}",
-                );
-            } else {
-                $self->say(
-                    channel => $self->channel,
-                    body => "$p->{nick} had no valid word",
-                );
+        # give 3 seconds to build suspense and allow players to switch back to the channel
+        $self->delay(3, sub {
+            # get players ordered by score
+            my @players = sort { $b->{letters_length} <=> $a->{letters_length} } @{ $g->{players} };
+            for my $p (@players) {
+                if ($p->{letters_length} > 0) {
+                    $self->say(
+                        channel => $self->channel,
+                        body => "$p->{nick}'s word was $p->{letters_word}",
+                    );
+                } else {
+                    $self->say(
+                        channel => $self->channel,
+                        body => "$p->{nick} had no valid word",
+                    );
+                }
             }
-        }
 
-        my $maxlen = 0;
-        for my $p (@players) {
-            $maxlen = $p->{letters_length} if $p->{letters_length} > $maxlen;
-        }
+            my $maxlen = 0;
+            for my $p (@players) {
+                $maxlen = $p->{letters_length} if $p->{letters_length} > $maxlen;
+            }
 
-        # calculate points
-        my $points = $maxlen;
-        $points *= 2 if $maxlen == $g->{format}{num_letters};
+            # calculate points
+            my $points = $maxlen;
+            $points *= 2 if $maxlen == $g->{format}{num_letters};
 
-        # add points to all the players with the longest word
-        for my $p (@players) {
-            $p->{score} += $points if $p->{letters_length} == $maxlen;
-        }
+            # add points to all the players with the longest word
+            for my $p (@players) {
+                $p->{score} += $points if $p->{letters_length} == $maxlen;
+            }
 
-        $self->show_scores;
+            $self->show_scores;
 
-        # TODO: bit of a delay before starting the next round (timer)
+            # TODO: bit of a delay before starting the next round (timer)
 
-        $self->next_round;
+            $self->next_round;
+        });
     }
 }
 
