@@ -263,6 +263,13 @@ sub join_said {
 
 ### game state management:
 
+sub delay {
+    my ($self, $secs, $cb) = @_;
+    $self->{timer_end} = time + $secs;
+    $self->{timer_cb} = $cb;
+    $self->schedule_tick($secs);
+}
+
 sub reset {
     my ($self) = @_;
 
@@ -564,12 +571,9 @@ sub begin_letters_timer {
         channel => $self->channel,
         body => "$secs seconds to solve those letters...",
     );
-    $g->{timer_end} = time + $secs;
-    $g->{timer_cb} = sub {
+    $self->delay($secs, sub {
         $self->set_state('letters_end');
-    }
-
-    $self->schedule_tick($secs);
+    });
 }
 
 sub begin_letters_words {
