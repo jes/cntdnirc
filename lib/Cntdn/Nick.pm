@@ -407,7 +407,7 @@ sub start_game {
         letters_time => 3, # secs:
     };
     $self->set_state('join');
-    # TODO: start 5 minute timer to ->reset if nobody joins or begin if anyone does (timer)
+    # TODO: start 5 minute timer to ->reset if nobody joins or begin if anyone does (timer) (needs cancelling)
 }
 
 sub next_word_answer {
@@ -536,7 +536,7 @@ sub begin_letters_answers {
     $g->{letters_answers_turn} %= @players;
     $g->{letters_answerer} = $players[$g->{letters_answers_turn}];
 
-    # TODO: some sort of timeout (timer)
+    # TODO: some sort of timeout (timer) (needs cancelling)
 
     $self->say(
         address => 1,
@@ -584,6 +584,8 @@ sub begin_letters_words {
     $_->{need_word} = 1 for @{ $g->{players} };
     $g->{need_words} = @{ $g->{players} };
 
+    # TODO: some sort of timeout (timer) (needs cancelling)
+
     $self->say(
         channel => $self->channel,
         body => "please send your words via private message",
@@ -603,7 +605,7 @@ sub begin_pick_letters {
     my ($self) = @_;
     my $g = $self->{game};
 
-    # TODO: some sort of timeout (timer)
+    # TODO: some sort of timeout (timer) (needs cancelling)
     # TODO: maximum of 6 consonants; maximum of 5 vowels (from format)
     $self->say(
         address => 1,
