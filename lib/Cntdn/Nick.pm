@@ -95,8 +95,9 @@ sub tick {
     return unless $timer_end;
 
     if (time >= $timer_end) {
-        # timer finished, enter the next state
-        $self->set_state($g->{timer_state});
+        # timer finished, run the callback
+        $g->{timer_cb}->() if $g->{timer_cb};
+        $g->{timer_cb} = undef;
         return 0;
     } else {
         # wait some more before firing again
@@ -564,7 +565,9 @@ sub begin_letters_timer {
         body => "$secs seconds to solve those letters...",
     );
     $g->{timer_end} = time + $secs;
-    $g->{timer_state} = 'letters_end';
+    $g->{timer_cb} = sub {
+        $self->set_state('letters_end');
+    }
 
     $self->schedule_tick($secs);
 }
