@@ -262,7 +262,7 @@ sub join_said {
     my ($self, $args) = @_;
     my $g = $self->{game};
 
-    $self->begin_game($args) if $args->{body} eq '!go';
+    $self->begin_game if $args->{body} eq '!go' && $self->has_joined($args->{who});
     $self->join_game($args) if $args->{body} eq '!join';
 }
 
@@ -271,6 +271,9 @@ sub join_said {
 # XXX: can only have one timer at a time
 sub delay {
     my ($self, $secs, $cb) = @_;
+
+    print STDERR "[tick] scheduled callback in $secs secs; " . ($self->{timer_cb} ? 'overwrite' : 'added') . " callback\n";
+
     $self->{timer_end} = time + $secs;
     $self->{timer_cb} = $cb;
     $self->schedule_tick($secs);
@@ -280,6 +283,7 @@ sub reset {
     my ($self) = @_;
 
     my $g = $self->{game} = {};
+    $g->{players} = [];
     $g->{letters_turn} = -1;
     $g->{numbers_turn} = -1;
 
@@ -359,12 +363,11 @@ sub pick_letter {
 }
 
 sub begin_game {
-    my ($self, $args) = @_;
+    my ($self) = @_;
     my $g = $self->{game};
 
-    return unless $g->{state} eq 'join';
-    return unless $self->has_joined($args->{who});
-    return unless @{ $g->{players} };
+    # cancel the 5-minute game start timer
+    $self->{timer_cb} = undef;
 
     $g->{players} = [shuffle @{ $g->{players} }];
 
@@ -413,7 +416,19 @@ sub start_game {
         letters_time => 3, # secs:
     };
     $self->set_state('join');
-    # TODO: start 5 minute timer to ->reset if nobody joins or begin if anyone does (timer) (needs cancelling)
+
+    # start 5 minute timer to reset if nobody joins or begin if anyone does
+    $self->delay(300, sub {
+        if (@{ $g->{players} }) {
+            $self->begin_game;
+        } else {
+            $self->say(
+                channel => $self->channel,
+                body => "No players joined, cancelled game.",
+            );
+            $self->reset;
+        }
+    });
 }
 
 sub next_word_answer {
