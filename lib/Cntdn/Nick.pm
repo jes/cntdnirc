@@ -12,7 +12,7 @@ use base qw(Cntdn::Base);
 my @vowels = split //, 'AAAAAAAAAAAAAAAEEEEEEEEEEEEEEEEEEEEEIIIIIIIIIIIIIOOOOOOOOOOOOOUUUUU';
 my @consonants = split //, 'BBCCCDDDDDDFFGGGHHJKLLLLLMMMMNNNNNNNNPPPPQRRRRRRRRRSSSSSSSSSTTTTTTTTTVWXYZ';
 
-my @large_nums = (25,25, 50,50, 75,75, 100,100);
+my @large_nums = (25, 50, 75, 100);
 my @small_nums = (1,1, 2,2, 3,3, 4,4, 5,5, 6,6, 7,7, 8,8, 9,9, 10,10);
 
 # states:
@@ -345,13 +345,29 @@ sub numbers_sums_pm {
     my $failure = 'invalid expression';
 
     my $expr = $args->{body};
-    # TODO: check they don't use numbers they don't have
+
+    # check they don't use any disallowed characters
     goto fail if $expr =~ /[^0-9+*\-\/\(\) ]/ || $expr =~ /\*\*/;
+
+    # check they don't use any numbers they don't have
+    # HACK: this works by replacing the numbers with dots and checking that
+    # there are no digits left after it's done
+    my $nonums = ".$expr.";
+    print STDERR "nonums=$nonums\n";
+    for my $n (@{ $g->{numbers} }) {
+        $nonums =~ s/\D\Q$n\E\D/./;
+        print STDERR "nonums=$nonums\n";
+    }
+    if ($nonums =~ /\d/) {
+        $failure = "you used excess numbers";
+        goto fail;
+    }
 
     # TODO: do we need more sanitising?
     my $r = eval($expr);
     goto fail if $@;
 
+    # check the sum is right
     if ($r != $p->{numbers_sum}) {
         $failure = "that doesn't make that";
         goto fail;
