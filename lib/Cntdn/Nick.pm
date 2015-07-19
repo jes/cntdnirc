@@ -554,7 +554,7 @@ sub pick_numbers {
 
     $self->say(
         channel => $self->channel,
-        body => "Selecting $numlarge large numbers and " . ($g->{format}{num_numbers} - $numlarge) . " small",
+        body => "Selecting $numlarge large and " . ($g->{format}{num_numbers} - $numlarge) . " small",
     );
 
     $self->delay(1, sub {
@@ -658,7 +658,7 @@ sub next_word_answer {
             } else {
                 $self->say(
                     channel => $self->channel,
-                    body => "$p->{nick} had no valid word",
+                    body => "$p->{nick} had no valid word", # TODO: (attempted "<invalid word>")
                 );
             }
 
@@ -713,12 +713,12 @@ sub next_sum_answer {
             if ($p->{numbers_sum}) {
                 $self->say(
                     channel => $self->channel,
-                    body => "$p->{nick}'s answer was $p->{numbers_expr}",
+                    body => "$p->{nick}'s answer was $p->{numbers_sum} = $p->{numbers_expr}",
                 );
             } else {
                 $self->say(
                     channel => $self->channel,
-                    body => "$p->{nick} had no valid answer",
+                    body => "$p->{nick} had no valid answer", # TODO: show what he tried
                 );
             }
 
