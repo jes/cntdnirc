@@ -12,6 +12,9 @@ use base qw(Cntdn::Base);
 my @vowels = split //, 'AAAAAAAAAAAAAAAEEEEEEEEEEEEEEEEEEEEEIIIIIIIIIIIIIOOOOOOOOOOOOOUUUUU';
 my @consonants = split //, 'BBCCCDDDDDDFFGGGHHJKLLLLLMMMMNNNNNNNNPPPPQRRRRRRRRRSSSSSSSSSTTTTTTTTTVWXYZ';
 
+my @large_nums = (25,25, 50,50, 75,75, 100,100);
+my @small_nums = (1,1, 2,2, 3,3, 4,4, 5,5, 6,6, 7,7, 8,8, 9,9, 10,10);
+
 # states:
 # wait - wait for someone to !start
 # join - wait for people to !join, and then !go
@@ -409,9 +412,11 @@ sub reset {
     $g->{letters_turn} = -1;
     $g->{numbers_turn} = -1;
 
-    # TODO: allow different probabilities in different formats (e.g. bastard mode)
     $g->{vowel_stack} = [];
     $g->{consonant_stack} = [];
+
+    $g->{large_stack} = [];
+    $g->{small_stack} = [];
 
     $self->set_state('wait');
 }
@@ -473,6 +478,7 @@ sub pick_letter {
 
     my $l;
 
+    # TODO: take @vowels/@consonants from game format
     if ($type eq 'vowel') {
         $g->{vowel_stack} = [shuffle @vowels] unless @{ $g->{vowel_stack} };
         $l = shift @{ $g->{vowel_stack} };
@@ -484,24 +490,59 @@ sub pick_letter {
     push @{ $g->{letters} }, $l;
 }
 
+sub pick_number {
+    my ($self, $numlarge) = @_;
+    my $g = $self->{game};
+
+    my $numsmall = $g->{format}{num_numbers} - $numlarge;
+    if (@{ $g->{numbers} } >= $numsmall) {
+        # pick a large
+        $g->{large_stack} = [shuffle @large_nums] unless @{ $g->{large_stack} };
+        unshift @{ $g->{numbers} }, shift @{ $g->{large_stack} };
+    } else {
+        # pick a small
+        $g->{small_stack} = [shuffle @small_nums] unless @{ $g->{small_stack} };
+        unshift @{ $g->{numbers} }, shift @{ $g->{small_stack} };
+    }
+
+    $self->say(
+        channel => $self->channel,
+        body => join(' ', @{ $g->{numbers} }),
+    );
+
+    if (@{ $g->{numbers} } == $g->{format}{num_numbers}) {
+        # pick the target
+        $self->delay(1, sub {
+            $g->{numbers_target} = 100 + int(rand(900));
+
+            $self->say(
+                channel => $self->channel,
+                body => "The target number is $g->{numbers_target}",
+            );
+
+            $self->delay(1, sub {
+                $self->set_state('numbers_timer');
+            });
+        });
+    } else {
+        # pick another number
+        $self->delay(1, sub {
+            $self->pick_number($numlarge);
+        });
+    }
+}
+
 sub pick_numbers {
     my ($self, $numlarge) = @_;
     my $g = $self->{game};
 
-    # TODO: implement this
     $self->say(
         channel => $self->channel,
-        body => "Would pick $numlarge large numbers and " . ($g->{format}{num_numbers} - $numlarge) . " small",
+        body => "Selecting $numlarge large numbers and " . ($g->{format}{num_numbers} - $numlarge) . " small",
     );
 
-    $self->delay(3, sub {
-        # TODO: pick target
-        $g->{numbers_target} = 123;
-        $self->say(
-            channel => $self->channel,
-            body => "The target number is $g->{numbers_target}",
-        );
-        $self->set_state('numbers_timer');
+    $self->delay(1, sub {
+        $self->pick_number($numlarge);
     });
 }
 
@@ -655,12 +696,12 @@ sub next_sum_answer {
         for my $p (@players) {
             if ($p->{numbers_sum}) {
                 $self->say(
-                    channel => $self->{channel},
+                    channel => $self->channel,
                     body => "$p->{nick}'s answer was $p->{numbers_expr}",
                 );
             } else {
                 $self->say(
-                    channel => $self->{channel},
+                    channel => $self->channel,
                     body => "$p->{nick} had no valid answer",
                 );
             }
