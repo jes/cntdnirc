@@ -363,7 +363,7 @@ sub numbers_sums_pm {
         goto fail;
     }
 
-    # TODO: do we need more sanitising?
+    # XXX: do we need more sanitising?
     my $r = eval($expr);
     goto fail if $@;
 
@@ -607,7 +607,7 @@ sub start_game {
 
     # TODO: get formats from cfg (maybe with specified format)
     $g->{format} = {
-        rounds => [qw(numbers letters letters letters letters)],
+        rounds => [qw(letters numbers letters numbers letters numbers letters numbers)],
         #[qw(
         #    letters letters letters letters numbers letters letters letters letters
         #    numbers letters letters letters numbers conundrum
