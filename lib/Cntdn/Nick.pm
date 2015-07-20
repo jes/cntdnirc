@@ -339,6 +339,7 @@ sub numbers_sums_pm {
     if ($args->{body} =~ /^\s*!skip\s*$/) {
         $p->{numbers_sum} = undef;
         $p->{numbers_expr} = undef;
+        $p->{need_sum} = 0;
         $self->next_sum_answer;
         return;
     }
@@ -375,6 +376,7 @@ sub numbers_sums_pm {
     }
 
     $p->{numbers_expr} = $expr;
+    $p->{need_sum} = 0;
 
     $self->say(
         channel => $self->channel,
