@@ -5,6 +5,7 @@ use warnings;
 
 use Cntdn::Base;
 use Cntdn::Player;
+use Cntdn::Numbers;
 use List::Util qw(shuffle);
 
 use base qw(Cntdn::Base);
@@ -346,36 +347,19 @@ sub numbers_sums_pm {
 
     my $failure = 'invalid expression';
 
-    my $expr = $args->{body};
+    my ($ok, $failure) = $g->{numbers_obj}->is_solution($args->{body}, $p->{numbers_sum}, @{ $g->{numbers} });
+    if (!$ok) {
+        $self->say(
+            address => 0,
+            who => $args->{who},
+            channel => 'msg',
+            body => "$failure, type !skip if you have no answer; what is your answer?",
+        );
 
-    # check they don't use any disallowed characters
-    goto fail if $expr =~ /[^0-9+*\-\/\(\) ]/ || $expr =~ /\*\*/;
-
-    # check they don't use any numbers they don't have
-    # HACK: this works by replacing the numbers with dots and checking that
-    # there are no digits left after it's done
-    my $nonums = ".$expr.";
-    print STDERR "nonums=$nonums\n";
-    for my $n (@{ $g->{numbers} }) {
-        $nonums =~ s/\D\Q$n\E\D/./;
-        print STDERR "nonums=$nonums\n";
-    }
-    if ($nonums =~ /\d/) {
-        $failure = "you used excess numbers";
-        goto fail;
+        return;
     }
 
-    # XXX: do we need more sanitising?
-    my $r = eval($expr);
-    goto fail if $@;
-
-    # check the sum is right
-    if ($r != $p->{numbers_sum}) {
-        $failure = "that doesn't make that";
-        goto fail;
-    }
-
-    $p->{numbers_expr} = $expr;
+    $p->{numbers_expr} = $args->{body};
     $p->{need_sum} = 0;
 
     $self->say(
@@ -384,15 +368,6 @@ sub numbers_sums_pm {
     );
 
     $self->next_sum_answer;
-
-    return;
-fail:
-    $self->say(
-        address => 0,
-        who => $args->{who},
-        channel => 'msg',
-        body => "$failure, type !skip if you have no answer; what is your answer?",
-    );
 }
 
 sub wait_said {
@@ -533,6 +508,11 @@ sub pick_number {
         # pick the target
         $self->delay(1, sub {
             $g->{numbers_target} = 100 + int(rand(900));
+
+            $g->{numbers_obj} = Cntdn::Numbers->new(
+                numbers => $g->{numbers},
+                target => $g->{numbers_target},
+            );
 
             $self->say(
                 channel => $self->channel,
@@ -750,7 +730,7 @@ sub next_sum_answer {
         # TODO: mention if it's closer than players (if the same, show an alternative? by magic)
         $self->say(
             channel => $self->channel,
-            body => "Best answer was ???",
+            body => "Best answer was " . $g->{numbers_obj}->best_answer,
         );
 
         $self->show_scores;

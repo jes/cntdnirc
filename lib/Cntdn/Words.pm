@@ -3,8 +3,6 @@ package Cntdn::Words;
 use strict;
 use warnings;
 
-use JSON::XS qw(decode_json);
-
 sub new {
     my ($pkg, %opts) = @_;
 
