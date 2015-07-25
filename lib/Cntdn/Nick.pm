@@ -610,18 +610,19 @@ sub start_game {
 
     # TODO: get formats from cfg (maybe with specified format)
     $g->{format} = {
-        rounds => [qw(letters numbers letters numbers letters numbers letters numbers)],
+        #rounds => [qw(letters numbers letters numbers letters numbers letters numbers)],
+        rounds => [qw(letters letters letters numbers letters letters letters numbers)],
         #[qw(
         #    letters letters letters letters numbers letters letters letters letters
         #    numbers letters letters letters numbers conundrum
         #)],
         num_letters => 9,
-        letters_time => 3, # secs
+        letters_time => 30, # secs
 
         num_numbers => 6,
         min_large => 0,
         max_large => 4,
-        numbers_time => 3, # secs
+        numbers_time => 30, # secs
     };
     $self->set_state('join');
 
