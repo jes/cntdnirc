@@ -12,7 +12,7 @@ sub new {
 }
 
 sub is_solution {
-    my ($self, $expr) = @_;
+    my ($self, $expr, $target) = @_;
 
     # check they don't use any disallowed characters
     return (0, 'invalid expression') if $expr =~ /[^0-9+*\-\/\(\) ]/ || $expr =~ /\*\*/;
@@ -32,8 +32,7 @@ sub is_solution {
     my $r = eval($expr);
     return (0, 'invalid expression') if $@;
 
-    # check the sum is right
-    return (0, "that doesn't make that") if $r != $self->{target};
+    return (0, "that doesn't make that") if $r != $target;
 
     return (1, 'ok');
 }
@@ -107,11 +106,31 @@ sub _recurse_solve_numbers {
 }
 
 sub _recurse_stringify_result {
-    my ($self, $result) = @_;
+    my ($self, $result, $parent_op) = @_;
 
     my %swap = (
         "?" => "/",
         "_" => "-",
+    );
+
+    my %compatible = (
+        "+" => {
+            "+" => 1,
+            "-" => 1,
+        },
+        "-" => {
+            "+" => 1,
+            "-" => 1,
+        },
+        "*" => {
+            "*" => 1,
+        },
+        "." => {
+            "+" => 1,
+            "-" => 1,
+            "*" => 1,
+            "/" => 1,
+        },
     );
 
     return $result->[0] if !$result->[1];
@@ -123,13 +142,21 @@ sub _recurse_stringify_result {
         $result->[1] = $swap{$result->[1]};
     }
 
-    return "(" . $self->_recurse_stringify_result($result->[2]) . " $result->[1] " . $self->_recurse_stringify_result($result->[3]) . ")";
+    my $op = $result->[1];
+    my $one = $result->[2];
+    my $two = $result->[3];
+
+    $parent_op ||= '.';
+    my $lparen = $compatible{$parent_op}{$op} ? '' : '(';
+    my $rparen = $compatible{$parent_op}{$op} ? '' : ')';
+
+    return $lparen . $self->_recurse_stringify_result($one, $op) . " $op " . $self->_recurse_stringify_result($two, $op) . $rparen;
 }
 
 sub stringify_result {
     my ($self, $result) = @_;
 
-    return "$result->[0] = " . $self->_recurse_stringify_result($result);
+    return $self->_recurse_stringify_result($result) . " = $result->[0]";
 }
 
 sub _solve_numbers {
