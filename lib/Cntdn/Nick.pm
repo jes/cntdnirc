@@ -429,6 +429,8 @@ sub reset {
     $g->{large_stack} = [];
     $g->{small_stack} = [];
 
+    $self->{timer_cb} = undef;
+
     $self->set_state('wait');
 }
 
