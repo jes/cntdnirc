@@ -4,8 +4,9 @@ use strict;
 use warnings;
 
 use Cntdn::Base;
-use Cntdn::Player;
+use Cntdn::Colours;
 use Cntdn::Numbers;
+use Cntdn::Player;
 use List::Util qw(shuffle);
 
 use base qw(Cntdn::Base);
@@ -146,7 +147,7 @@ sub pick_letters_said {
 
     $self->say(
         channel => $self->channel,
-        body => join(' ', map { uc $_ } @{ $g->{letters} }),
+        body => COLOUR('white', 'blue') . ' ' .join(' ', map { uc $_ } @{ $g->{letters} }, (' ')x($g->{format}{num_letters} - @{ $g->{letters} })) . ' ' . RESET(),
     );
 
     if (@{ $g->{letters} } == $g->{format}{num_letters}) {
@@ -171,7 +172,7 @@ sub letters_answers_said {
                 address => 1,
                 who => $args->{who},
                 channel => $self->channel,
-                body => "that's too many letters, type 0 if you have no word; how many letters?",
+                body => "that's too many letters, type " . BOLD() . "0" . RESET() . " if you have no word; how many letters?",
             );
             return;
         }
@@ -220,7 +221,7 @@ sub letters_words_pm {
                     address => 0,
                     who => $args->{who},
                     channel => 'msg',
-                    body => "that's not $p->{letters_length} letters, type !skip if you have no word; what is your word?",
+                    body => "that's not " . BOLD() . "$p->{letters_length}" . RESET() . " letters, type " . BOLD() . "!skip" . RESET() . " if you have no word; what is your word?",
                 );
                 return;
             }
@@ -231,7 +232,7 @@ sub letters_words_pm {
                     address => 0,
                     who => $args->{who},
                     channel => 'msg',
-                    body => "you can't make that word, type !skip if you have no word; what is your word?",
+                    body => "you can't make that word, type " . BOLD() . "!skip" . RESET() . " if you have no word; what is your word?",
                 );
                 return;
             }
@@ -259,7 +260,7 @@ sub letters_words_pm {
 
         $self->say(
             channel => $self->channel,
-            body => "received $args->{who}'s word",
+            body => RESET() . "received " . BOLD() . "$args->{who}" . RESET() . "'s word",
         );
 
         $self->next_word_answer;
@@ -280,14 +281,14 @@ sub numbers_said {
                 address => 1,
                 who => $args->{who},
                 channel => $self->channel,
-                body => "must have at least $g->{format}{min_large} large; how many large? [$g->{format}{min_large}-$g->{format}{max_large}]",
+                body => RESET() . "must have at least " . BOLD() . "$g->{format}{min_large}" . RESET() . " large; how many large? [$g->{format}{min_large}-$g->{format}{max_large}]",
             );
         } elsif ($numlarge > $g->{format}{max_large}) {
             $self->say(
                 address => 1,
                 who => $args->{who},
                 channel => $self->channel,
-                body => "must have at most $g->{format}{max_large} large; how many large? [$g->{format}{min_large}-$g->{format}{max_large}]",
+                body => RESET() . "must have at most " . BOLD() . "$g->{format}{max_large}" . RESET() . " large; how many large? [$g->{format}{min_large}-$g->{format}{max_large}]",
             );
         } else {
             $self->pick_numbers($numlarge);
@@ -325,7 +326,7 @@ sub numbers_sums_said {
         address => 1,
         who => $args->{who},
         channel => $self->channel,
-        body => "please send your answer via private message",
+        body => RESET() . "please send your answer via private message",
     );
 
 }
@@ -351,7 +352,7 @@ sub numbers_sums_pm {
             address => 0,
             who => $args->{who},
             channel => 'msg',
-            body => "$failure, type !skip if you have no answer; what is your answer?",
+            body => RESET() . BOLD() . "$failure" . RESET() . ", type " . BOLD() . "!skip" . RESET() . " if you have no answer; what is your answer?",
         );
 
         return;
@@ -362,7 +363,7 @@ sub numbers_sums_pm {
 
     $self->say(
         channel => $self->channel,
-        body => "received $args->{who}'s answer",
+        body => RESET() . "Received " . BOLD() . "$args->{who}" . RESET() . "'s answer",
     );
 
     $self->next_sum_answer;
@@ -450,7 +451,7 @@ sub next_round {
         $self->reset;
         $self->say(
             channel => $self->channel,
-            body => 'game over',
+            body => INVERSE() . BOLD() . 'game over' . RESET(),
         );
         return;
     }
@@ -469,7 +470,7 @@ sub show_scores {
     for my $p (@players) {
         $self->say(
             channel => $self->channel,
-            body => "$p->{nick} - $p->{score} points",
+            body => RESET() . BOLD() . "$p->{nick} - $p->{score}" . RESET() . " points",
         );
     }
 }
@@ -515,9 +516,10 @@ sub pick_number {
         unshift @{ $g->{numbers} }, shift @{ $g->{small_stack} };
     }
 
+    # TODO: print them right-to-left (like the old CLI game)
     $self->say(
         channel => $self->channel,
-        body => join(' ', @{ $g->{numbers} }),
+        body => COLOUR('white', 'blue') . ' ' . join(' ', @{ $g->{numbers} }) . ' ' . RESET(),
     );
 
     if (@{ $g->{numbers} } == $g->{format}{num_numbers}) {
@@ -532,7 +534,7 @@ sub pick_number {
 
             $self->say(
                 channel => $self->channel,
-                body => "The target number is $g->{numbers_target}",
+                body => "The target number is " . COLOUR('green', 'black') . "$g->{numbers_target}" . RESET(),
             );
 
             $self->delay(1, sub {
@@ -553,7 +555,7 @@ sub pick_numbers {
 
     $self->say(
         channel => $self->channel,
-        body => "Selecting $numlarge large and " . ($g->{format}{num_numbers} - $numlarge) . " small",
+        body => "Selecting " . BOLD() . "$numlarge" . RESET() . " large and " . BOLD() . ($g->{format}{num_numbers} - $numlarge) . RESET() . " small",
     );
 
     $self->delay(1, sub {
@@ -572,7 +574,7 @@ sub begin_game {
 
     $self->say(
         channel => $self->channel,
-        body => "beginning game with " . join(', ', map { $_->{nick} } @{ $g->{players} }),
+        body => RESET() . "Beginning game with " . join(', ', map { BOLD() . $_->{nick} . RESET() } @{ $g->{players} }),
     );
 
     $self->next_round;
@@ -594,7 +596,7 @@ sub join_game {
         address => 1,
         who => $args->{who},
         channel => $self->channel,
-        body => "you've joined the game (now got " . (scalar @{ $g->{players} }) . " players)",
+        body => RESET() . "you've joined the game (now got " . BOLD() . (scalar @{ $g->{players} }) . RESET() . " players)",
     );
 }
 
@@ -678,12 +680,12 @@ sub next_word_answer {
             if ($p->{letters_length} > 0) {
                 $self->say(
                     channel => $self->channel,
-                    body => "$p->{nick}'s word was $p->{letters_word}",
+                    body => RESET() . BOLD() . "$p->{nick}" . RESET() . "'s word was " . BOLD() . "$p->{letters_word}" . RESET(),
                 );
             } else {
                 $self->say(
                     channel => $self->channel,
-                    body => "$p->{nick} had no valid word", # TODO: (attempted "<invalid word>")
+                    body => RESET() . BOLD () . "$p->{nick}" . RESET() . " had no valid word", # TODO: (attempted "<invalid word>")
                 );
             }
 
@@ -695,7 +697,7 @@ sub next_word_answer {
         # TODO: not a "winner" if nobody got a word
         $self->say(
             channel => $self->channel,
-            body => "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { $_->{nick} } @winners) . "!",
+            body => RESET() . "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { BOLD() . $_->{nick} . RESET() } @winners) . "!",
         );
 
         # calculate points
@@ -709,7 +711,7 @@ sub next_word_answer {
         # TODO: mention if it's longer than the players got (if the same, show an alternative if possible)
         $self->say(
             channel => $self->channel,
-            body => "Best word available was " . $self->{words}->best_word(@{ $g->{letters} }),
+            body => "Best word available was " . BOLD() . $self->{words}->best_word(@{ $g->{letters} }) . RESET(),
         );
 
         $self->delay(3, sub {
@@ -739,12 +741,12 @@ sub next_sum_answer {
             if ($p->{numbers_sum}) {
                 $self->say(
                     channel => $self->channel,
-                    body => "$p->{nick}'s answer was $p->{numbers_expr} = $p->{numbers_sum}",
+                    body => RESET() . BOLD() . "$p->{nick}" . RESET() . "'s answer was " . BOLD() . "$p->{numbers_expr} = $p->{numbers_sum}" . RESET(),
                 );
             } else {
                 $self->say(
                     channel => $self->channel,
-                    body => "$p->{nick} had no valid answer", # TODO: show what he tried
+                    body => RESET() . BOLD() . "$p->{nick}" . RESET() . " had no valid answer", # TODO: show what he tried
                 );
             }
 
@@ -756,7 +758,7 @@ sub next_sum_answer {
         # TODO: not a "winner" if nobody got a word
         $self->say(
             channel => $self->channel,
-            body => "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { $_->{nick} } @winners) . "!",
+            body => RESET() . "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { BOLD() . $_->{nick} . RESET() } @winners) . "!",
         );
 
         # calculate points
@@ -772,7 +774,7 @@ sub next_sum_answer {
         # TODO: mention if it's closer than players (if the same, show an alternative? by magic)
         $self->say(
             channel => $self->channel,
-            body => "Best answer was " . $g->{numbers_best_answer},
+            body => "Best answer was " . BOLD() . $g->{numbers_best_answer} . RESET(),
         );
 
         $self->delay(3, sub {
@@ -799,7 +801,7 @@ sub reset_game {
         address => 1,
         who => $args->{who},
         channel => $self->channel,
-        body => "have reset",
+        body => RESET() . "have reset",
     );
 }
 
@@ -811,7 +813,7 @@ sub show_state {
         address => 1,
         who => $args->{who},
         channel => $self->channel,
-        body => "state=$g->{state}",
+        body => RESET() . "state=$g->{state}",
     );
 }
 
@@ -831,7 +833,7 @@ sub begin_join {
 
     $self->say(
         channel => $self->channel,
-        body => "Starting a game with format '$g->{format_name}', join with !join, begin with !go",
+        body => "Starting a game with format " . BOLD() . "$g->{format_name}" . RESET() . ", join with " . BOLD() . "!join" . RESET() . ", begin with " . BOLD() . "!go" . RESET(),
     );
 }
 
@@ -847,7 +849,7 @@ sub begin_letters {
 
     $self->say(
         channel => $self->channel,
-        body => "Letters round. It's $g->{letters_picker}{nick}'s turn to pick letters.",
+        body => RESET() . BOLD() . "Letters round." . RESET() . " It's " . BOLD() . "$g->{letters_picker}{nick}" . RESET() . "'s turn to pick letters.",
     );
 
     $self->set_state('pick_letters');
@@ -863,7 +865,7 @@ sub begin_pick_letters {
         address => 1,
         who => $g->{letters_picker}{nick},
         channel => $self->channel,
-        body => "vowel or consonant? [v/c]",
+        body => RESET() . "vowel or consonant? " . BOLD() . "[v/c]" . RESET(),
     );
 }
 
@@ -875,7 +877,7 @@ sub begin_letters_timer {
 
     $self->say(
         channel => $self->channel,
-        body => "$secs seconds to solve those letters...",
+        body => BOLD() . "$secs" . RESET() . " seconds to solve those letters...",
     );
     # TODO: show 20s, 10s, 3,2,1 (timer)
     $self->delay($secs, sub {
@@ -907,7 +909,7 @@ sub begin_letters_answers {
         address => 1,
         who => $g->{letters_answerer}{nick},
         channel => $self->channel,
-        body => 'how many letters?',
+        body => RESET() . 'how many letters?',
     );
 }
 
@@ -930,7 +932,7 @@ sub begin_letters_words {
             address => 0,
             who => $p->{nick},
             channel => 'msg',
-            body => "what is your $p->{letters_length}-letter word?",
+            body => RESET() . "what is your " . BOLD() . "$p->{letters_length}" . RESET() . "-letter word?",
         );
     }
 }
@@ -947,14 +949,14 @@ sub begin_numbers {
 
     $self->say(
         channel => $self->channel,
-        body => "Numbers round. It's $g->{numbers_picker}{nick}'s turn to pick numbers.",
+        body => RESET() . "Numbers round. It's " . BOLD() . "$g->{numbers_picker}{nick}" . RESET() . "'s turn to pick numbers.",
     );
 
     $self->say(
         address => 1,
         who => $g->{numbers_picker}{nick},
         channel => $self->channel,
-        body => "need $g->{format}{num_numbers} numbers; how many large? [$g->{format}{min_large}-$g->{format}{max_large}]",
+        body => RESET() . "need " . BOLD() . "$g->{format}{num_numbers}" . RESET() . " numbers; how many large? [$g->{format}{min_large}-$g->{format}{max_large}]",
     );
 }
 
@@ -966,7 +968,7 @@ sub begin_numbers_timer {
 
     $self->say(
         channel => $self->channel,
-        body => "$secs seconds to solve those numbers...",
+        body => BOLD() . "$secs" . RESET() . " seconds to solve those numbers...",
     );
     # TODO: show 20s, 10s, 3,2,1 (timer)
     $self->delay($secs, sub {
@@ -1003,7 +1005,7 @@ sub begin_numbers_answers {
         address => 1,
         who => $g->{numbers_answerer}{nick},
         channel => $self->channel,
-        body => 'what number did you reach?',
+        body => RESET() . 'what number did you reach?',
     );
 }
 
@@ -1026,7 +1028,7 @@ sub begin_numbers_sums {
             address => 0,
             who => $p->{nick},
             channel => 'msg',
-            body => "what is your $p->{numbers_sum} answer? (use infix notation)",
+            body => RESET() . "what is your " . BOLD() . "$p->{numbers_sum}" . RESET() . " answer? (use infix notation)",
         );
     }
 }
