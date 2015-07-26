@@ -345,8 +345,6 @@ sub numbers_sums_pm {
         return;
     }
 
-    my $failure = 'invalid expression';
-
     my ($ok, $failure) = $g->{numbers_obj}->is_solution($args->{body}, $p->{numbers_sum}, @{ $g->{numbers} });
     if (!$ok) {
         $self->say(
@@ -389,12 +387,19 @@ sub join_said {
 
 # XXX: can only have one timer at a time
 sub delay {
-    my ($self, $secs, $cb) = @_;
+    my ($self, $secs, $cb, %opts) = @_;
 
     print STDERR "[tick] scheduled callback in $secs secs; " . ($self->{timer_cb} ? 'overwrite' : 'added') . " callback\n";
 
     $self->{timer_end} = time + $secs;
     $self->{timer_cb} = $cb;
+
+    # optionally, run some compute-intensive operation "while waiting for the timer"
+    if ($opts{compute_cb}) {
+        $opts{compute_cb}->();
+        $secs = $self->{timer_end} - time;
+    }
+
     $self->schedule_tick($secs);
 }
 
@@ -521,6 +526,11 @@ sub pick_number {
 
             $self->delay(1, sub {
                 $self->set_state('numbers_timer');
+            },
+            compute_cb => sub {
+                # this can take a while, so here we run it as the compute callback
+                # while the timer is ticking
+                $g->{numbers_best_answer} = $g->{numbers_obj}->best_answer;
             });
         });
     } else {
@@ -730,7 +740,7 @@ sub next_sum_answer {
         # TODO: mention if it's closer than players (if the same, show an alternative? by magic)
         $self->say(
             channel => $self->channel,
-            body => "Best answer was " . $g->{numbers_obj}->best_answer,
+            body => "Best answer was " . $g->{numbers_best_answer},
         );
 
         $self->show_scores;

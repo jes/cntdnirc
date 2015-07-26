@@ -173,6 +173,8 @@ sub solve_numbers {
 
 sub best_answer {
     my ($self) = @_;
+
+    return $self->solve_numbers;
 }
 
 1;
