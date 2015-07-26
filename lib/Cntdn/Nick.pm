@@ -372,7 +372,7 @@ sub wait_said {
     my ($self, $args) = @_;
     my $g = $self->{game};
 
-    $self->start_game($args) if $args->{body} eq '!start';
+    $self->start_game($args) if $args->{body} =~ /^!start(\s|$)/;
 }
 
 sub join_said {
@@ -602,24 +602,49 @@ sub start_game {
     my ($self, $args) = @_;
     my $g = $self->{game};
 
-    return unless $g->{state} eq 'wait';
-
     # TODO: get formats from cfg (maybe with specified format)
-    $g->{format} = {
-        #rounds => [qw(letters numbers letters numbers letters numbers letters numbers)],
-        rounds => [qw(letters letters letters numbers letters letters letters numbers)],
-        #[qw(
-        #    letters letters letters letters numbers letters letters letters letters
-        #    numbers letters letters letters numbers conundrum
-        #)],
-        num_letters => 9,
-        letters_time => 30, # secs
+    my %formats = (
+        default => {
+            rounds => [qw(letters letters letters numbers letters letters letters numbers)],
 
-        num_numbers => 6,
-        min_large => 0,
-        max_large => 4,
-        numbers_time => 30, # secs
-    };
+            num_letters => 9,
+            letters_time => 30, # secs
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 30, # secs
+        },
+        letters => {
+            rounds => [qw(letters letters letters letters letters letters letters letters)],
+
+            num_letters => 9,
+            letters_time => 30, # secs
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 30, # secs
+        },
+        numbers => {
+            rounds => [qw(numbers numbers numbers numbers numbers numbers numbers numbers)],
+
+            num_letters => 9,
+            letters_time => 30, # secs
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 30, # secs
+        },
+    );
+
+    my @words = split /\s+/, $args->{body};
+    my $format = $words[1] || 'default';
+
+    $g->{format} = $formats{$format};
+    $g->{format_name} = $format;
+
     $self->set_state('join');
 
     # start 5 minute timer to reset if nobody joins or begin if anyone does
@@ -806,7 +831,7 @@ sub begin_join {
 
     $self->say(
         channel => $self->channel,
-        body => 'Starting a game, join with !join, begin with !go',
+        body => "Starting a game with format '$g->{format_name}', join with !join, begin with !go",
     );
 }
 
