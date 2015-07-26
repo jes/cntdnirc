@@ -345,7 +345,7 @@ sub numbers_sums_pm {
         return;
     }
 
-    my ($ok, $failure) = $g->{numbers_obj}->is_solution($args->{body}, $p->{numbers_sum}, @{ $g->{numbers} });
+    my ($ok, $failure) = $g->{numbers_obj}->is_solution($args->{body}, $p->{numbers_sum});
     if (!$ok) {
         $self->say(
             address => 0,
@@ -389,16 +389,27 @@ sub join_said {
 sub delay {
     my ($self, $secs, $cb, %opts) = @_;
 
+    if ($opts{compute_cb}) {
+        # XXX: run after a delay of 0 to allow this function to return and the event loop to tick
+        $self->delay(0, sub {
+            # run the compute_cb
+            $opts{compute_cb}->();
+            delete $opts{compute_cb};
+
+            # then delay for however much time is left and run the cb
+            $secs = $self->{timer_end} - time;
+            $self->delay($secs, $cb, %opts);
+        });
+
+        return;
+    }
+
     print STDERR "[tick] scheduled callback in $secs secs; " . ($self->{timer_cb} ? 'overwrite' : 'added') . " callback\n";
+
+    # optionally, run some compute-intensive operation "while waiting for the timer"
 
     $self->{timer_end} = time + $secs;
     $self->{timer_cb} = $cb;
-
-    # optionally, run some compute-intensive operation "while waiting for the timer"
-    if ($opts{compute_cb}) {
-        $opts{compute_cb}->();
-        $secs = $self->{timer_end} - time;
-    }
 
     $self->schedule_tick($secs);
 }
@@ -526,11 +537,6 @@ sub pick_number {
 
             $self->delay(1, sub {
                 $self->set_state('numbers_timer');
-            },
-            compute_cb => sub {
-                # this can take a while, so here we run it as the compute callback
-                # while the timer is ticking
-                $g->{numbers_best_answer} = $g->{numbers_obj}->best_answer;
             });
         });
     } else {
@@ -681,11 +687,12 @@ sub next_word_answer {
             body => "Best word available was " . $self->{words}->best_word(@{ $g->{letters} }),
         );
 
-        $self->show_scores;
-
-        # bit of a delay before starting the next round
         $self->delay(3, sub {
-            $self->next_round;
+            $self->show_scores;
+            # bit of a delay before starting the next round
+            $self->delay(1, sub {
+                $self->next_round;
+            });
         });
     });
 }
@@ -707,7 +714,7 @@ sub next_sum_answer {
             if ($p->{numbers_sum}) {
                 $self->say(
                     channel => $self->channel,
-                    body => "$p->{nick}'s answer was $p->{numbers_sum} = $p->{numbers_expr}",
+                    body => "$p->{nick}'s answer was $p->{numbers_expr} = $p->{numbers_sum}",
                 );
             } else {
                 $self->say(
@@ -743,13 +750,13 @@ sub next_sum_answer {
             body => "Best answer was " . $g->{numbers_best_answer},
         );
 
-        $self->show_scores;
-
-        # bit of a delay before starting the next round
         $self->delay(3, sub {
-            $self->next_round;
+            $self->show_scores;
+            # bit of a delay before starting the next round
+            $self->delay(1, sub {
+                $self->next_round;
+            });
         });
-
     });
 }
 
@@ -948,6 +955,11 @@ sub begin_numbers_timer {
         $g->{numbers_answers_turn} = $g->{numbers_turn} - 1;
 
         $self->set_state('numbers_answers');
+    },
+    compute_cb => sub {
+        # this can take a while, so here we run it as the compute callback
+        # while the timer is ticking
+        $g->{numbers_best_answer} = $g->{numbers_obj}->best_answer;
     });
 }
 
