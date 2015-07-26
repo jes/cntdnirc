@@ -106,10 +106,30 @@ sub _recurse_solve_numbers {
     }
 }
 
+sub _recurse_stringify_result {
+    my ($self, $result) = @_;
+
+    my %swap = (
+        "?" => "/",
+        "_" => "-",
+    );
+
+    return $result->[0] if !$result->[1];
+
+    if ($swap{$result->[1]}) {
+        my $r = $result->[2];
+        $result->[2] = $result->[3];
+        $result->[3] = $r;
+        $result->[1] = $swap{$result->[1]};
+    }
+
+    return "(" . $self->_recurse_stringify_result($result->[2]) . " $result->[1] " . $self->_recurse_stringify_result($result->[3]) . ")";
+}
+
 sub stringify_result {
     my ($self, $result) = @_;
 
-    return "Reached $result->[0]";
+    return "$result->[0] = " . $self->_recurse_stringify_result($result);
 }
 
 sub _solve_numbers {
@@ -122,14 +142,17 @@ sub _solve_numbers {
         push @was_generated, undef;
     }
 
-    return $self->_recurse_solve_numbers($numbers, 0, \@was_generated, $target, @$numbers, 0, $trickshot);
+    $self->_recurse_solve_numbers($numbers, 0, \@was_generated, $target, scalar(@$numbers), 0, $trickshot);
+
+    return $self->{bestresult};
 }
 
 sub solve_numbers {
     my ($self, %opts) = @_;
 
     my @numbers = sort @{ $self->{numbers} };
-    $self->{bestresult} = [$numbers[0], $numbers[0]];
+    $self->{bestresult} = [$numbers[0], undef];
+    $self->{bestvalsums} = $numbers[0];
 
     # see if one of these numbers is the answer; with trickshot you'd rather
     # have an interesting answer that's close than an exact answer
