@@ -936,7 +936,7 @@ sub begin_letters_words {
             address => 0,
             who => $p->{nick},
             channel => 'msg',
-            body => RESET() . "what is your " . BOLD() . "$p->{letters_length}" . RESET() . "-letter word?",
+            body => RESET() . "what is your " . BOLD() . "$p->{letters_length}" . RESET() . "-letter word? " . COLOUR('white', 'blue') . ' ' .join(' ', map { uc $_ } @{ $g->{letters} }, (' ')x($g->{format}{num_letters} - @{ $g->{letters} })) . ' ' . RESET(),
         );
     }
 }
@@ -1032,7 +1032,7 @@ sub begin_numbers_sums {
             address => 0,
             who => $p->{nick},
             channel => 'msg',
-            body => RESET() . "what is your " . BOLD() . "$p->{numbers_sum}" . RESET() . " answer? (use infix notation)",
+            body => RESET() . "what is your " . BOLD() . "$p->{numbers_sum}" . RESET() . " answer? (use infix notation) " . COLOUR('white', 'blue') . ' ' . join(' ', @{ $g->{numbers} }) . ' ' . RESET(),
         );
     }
 }
