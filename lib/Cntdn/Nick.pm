@@ -87,7 +87,7 @@ sub said {
 
     my $state = $g->{state};
 
-    if ($args->{channel} eq $self->channel) {
+    if (lc $args->{channel} eq lc $self->channel) {
         $self->log("$args->{who} said '$args->{body}'");
 
         if ($args->{body} =~ /^!/) {
@@ -133,9 +133,9 @@ sub pick_letters_said {
     my $g = $self->{game};
 
     my $picker = $g->{letters_picker};
-    return unless $args->{who} eq $picker->{nick};
+    return unless lc $args->{who} eq lc $picker->{nick};
 
-    my $s = $args->{body};
+    my $s = lc $args->{body};
     $s =~ s/\s*//g;
 
     # do nothing if it isn't a string of c's and v's
@@ -162,7 +162,7 @@ sub letters_answers_said {
     my $g = $self->{game};
 
     my $answerer = $g->{letters_answerer};
-    return unless $args->{who} eq $answerer->{nick};
+    return unless lc $args->{who} eq lc $answerer->{nick};
 
     if ($args->{body} =~ /^\s*(\d+)\s*$/) {
         my $len = $1;
@@ -272,7 +272,7 @@ sub numbers_said {
     my $g = $self->{game};
 
     my $picker = $g->{numbers_picker};
-    return unless $args->{who} eq $picker->{nick};
+    return unless lc $args->{who} eq lc $picker->{nick};
 
     if ($args->{body} =~ /^\s*(\d+)\s*$/) {
         my $numlarge = $1;
@@ -301,7 +301,7 @@ sub numbers_answers_said {
     my $g = $self->{game};
 
     my $answerer = $g->{numbers_answerer};
-    return unless $args->{who} eq $answerer->{nick};
+    return unless lc $args->{who} eq lc $answerer->{nick};
 
     if ($args->{body} =~ /^\s*(\d+)\s*$/) {
         my $num = $1;
@@ -441,7 +441,7 @@ sub player_by_nick {
     my $g = $self->{game};
 
     for my $p (@{ $g->{players} }) {
-        return $p if $p->{nick} eq $who;
+        return $p if lc $p->{nick} eq lc $who;
     }
     return undef;
 }
@@ -483,7 +483,7 @@ sub has_joined {
     my ($self, $who) = @_;
     my $g = $self->{game};
 
-    return 1 if grep { $_->{nick} eq $who } @{ $g->{players} };
+    return 1 if grep { lc $_->{nick} eq lc $who } @{ $g->{players} };
     return 0;
 }
 
