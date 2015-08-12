@@ -390,6 +390,8 @@ sub join_said {
 sub delay {
     my ($self, $secs, $cb, %opts) = @_;
 
+    my $end = time + $secs;
+
     if ($opts{compute_cb}) {
         # XXX: run after a delay of 0 to allow this function to return and the event loop to tick
         $self->delay(0, sub {
@@ -398,7 +400,7 @@ sub delay {
             delete $opts{compute_cb};
 
             # then delay for however much time is left and run the cb
-            $secs = $self->{timer_end} - time;
+            $secs = $end - time;
             $self->delay($secs, $cb, %opts);
         });
 
@@ -409,7 +411,7 @@ sub delay {
 
     # optionally, run some compute-intensive operation "while waiting for the timer"
 
-    $self->{timer_end} = time + $secs;
+    $self->{timer_end} = $end;
     $self->{timer_cb} = $cb;
 
     $self->schedule_tick($secs);
