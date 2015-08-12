@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 our @ISA = qw(Exporter);
-our @EXPORT = qw(COLOUR RESET BOLD);
+our @EXPORT = qw(COLOUR RESET BOLD INVERSE);
 
 # https://github.com/myano/jenni/wiki/IRC-String-Formatting
 sub COLOUR {
