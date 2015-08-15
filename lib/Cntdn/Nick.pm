@@ -380,6 +380,8 @@ sub conundrum_timer_said {
     my ($self, $args) = @_;
     my $g = $self->{game};
 
+    return if $g->{times_up};
+
     my $p = $self->player_by_nick($args->{who});
     return unless $p;
 
@@ -1145,6 +1147,7 @@ sub begin_conundrum {
 
     my @players = @{ $g->{players} };
     $g->{conundrum} = [ split //, $self->{words}->conundrum ];
+    $g->{times_up} = 0;
     $_->{has_answered_conundrum} = 0 for @players;
 
     # TODO: announce "crucial" if appropriate
@@ -1179,6 +1182,8 @@ sub begin_conundrum_timer {
             channel => $self->channel,
             body => "Time's up! Nobody got the answer.",
         );
+
+        $g->{times_up} = 1;
 
         $self->delay(1, sub {
             my $word = $self->{words}->best_word(@{ $g->{conundrum} });
