@@ -29,6 +29,8 @@ my @small_nums = (1,1, 2,2, 3,3, 4,4, 5,5, 6,6, 7,7, 8,8, 9,9, 10,10);
 # numbers_timer - wait 30s
 # numbers_answers - collect the numbers they reached
 # numbers_sums - collect the players' sums
+# conundrum - initialise conundrum and compute letters
+# conundrum_timer - wait 30s, and allow people to answer
 
 # only for methods that make sense in any state (or at least many states)
 my %methods = (
@@ -49,6 +51,9 @@ my %begin_state = (
     numbers_timer => \&begin_numbers_timer,
     numbers_answers => \&begin_numbers_answers,
     numbers_sums => \&begin_numbers_sums,
+
+    conundrum => \&begin_conundrum,
+    conundrum_timer => \&begin_conundrum_timer,
 );
 
 my %said_in_state = (
@@ -59,6 +64,8 @@ my %said_in_state = (
     numbers => \&numbers_said,
     numbers_answers => \&numbers_answers_said,
     numbers_sums => \&numbers_sums_said,
+
+    conundrum_timer => \&conundrum_timer_said,
 
     wait => \&wait_said,
     join => \&join_said,
@@ -172,7 +179,7 @@ sub letters_answers_said {
                 address => 1,
                 who => $args->{who},
                 channel => $self->channel,
-                body => "that's too many letters, type " . BOLD() . "0" . RESET() . " if you have no word; how many letters?",
+                body => RESET() . "that's too many letters, type " . BOLD() . "0" . RESET() . " if you have no word; how many letters?",
             );
             return;
         }
@@ -197,7 +204,7 @@ sub letters_words_said {
         address => 1,
         who => $args->{who},
         channel => $self->channel,
-        body => "please send your word via private message",
+        body => RESET() . "please send your word via private message",
     );
 }
 
@@ -221,7 +228,7 @@ sub letters_words_pm {
                     address => 0,
                     who => $args->{who},
                     channel => 'msg',
-                    body => "that's not " . BOLD() . "$p->{letters_length}" . RESET() . " letters, type " . BOLD() . "!skip" . RESET() . " if you have no word; what is your word?",
+                    body => RESET() . "that's not " . BOLD() . "$p->{letters_length}" . RESET() . " letters, type " . BOLD() . "!skip" . RESET() . " if you have no word; what is your word?",
                 );
                 return;
             }
@@ -232,7 +239,7 @@ sub letters_words_pm {
                     address => 0,
                     who => $args->{who},
                     channel => 'msg',
-                    body => "you can't make that word, type " . BOLD() . "!skip" . RESET() . " if you have no word; what is your word?",
+                    body => RESET() . "you can't make that word, type " . BOLD() . "!skip" . RESET() . " if you have no word; what is your word?",
                 );
                 return;
             }
@@ -244,7 +251,7 @@ sub letters_words_pm {
                     address => 0,
                     who => $args->{who},
                     channel => 'msg',
-                    body => "that's not a legit word, sorry",
+                    body => RESET() . "that's not a legit word, sorry",
                 );
 
                 $p->{letters_length} = 0;
@@ -367,6 +374,82 @@ sub numbers_sums_pm {
     );
 
     $self->next_sum_answer;
+}
+
+sub conundrum_timer_said {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    my $p = $self->player_by_nick($args->{who});
+    return unless $p;
+
+    my $word = $args->{body};
+
+    return if length $word != @{ $g->{conundrum} };
+
+    if ($p->{has_answered_conundrum}) {
+        $self->say(
+            address => 1,
+            who => $args->{who},
+            channel => $self->channel,
+            body => RESET() . "you've already tried, you may not try again.",
+        );
+        return;
+    }
+
+    $p->{has_answered_conundrum} = 1;
+
+    # check they didn't use letters they don't have
+    if (!$self->{words}->can_make($word, @{ $g->{conundrum} })) {
+        $self->say(
+            address => 1,
+            who => $args->{who},
+            channel => $self->channel,
+            body => RESET() . "you can't make that word. " . BOLD() . ($self->{timer_end} - time) . RESET() . " seconds remain for everyone else...",
+        );
+        return;
+    }
+
+    # check in dictionary
+    if (!$self->{words}->is_word($word)) {
+        $self->say(
+            address => 1,
+            who => $args->{who},
+            channel => $self->channel,
+            body => RESET() . "that's not a legit word, sorry. " . BOLD() . ($self->{timer_end} - time) . RESET() . " seconds remain for everyone else...",
+        );
+        return;
+    }
+
+    # else, they got it right!
+    $self->say(
+        address => 1,
+        who => $args->{who},
+        channel => $self->channel,
+        body => RESET() . "let's take a look...",
+    );
+
+    $self->delay(1, sub {
+        $self->say(
+            channel => $self->channel,
+            body => COLOUR('white', 'blue') . ' ' . join(' ', map { uc $_ } split //, $word) . ' ' . RESET(),
+        );
+
+        $self->say(
+            channel => $self->channel,
+            body => RESET() . "It's the right answer! " . BOLD() . "10" . RESET() . " points to " . BOLD() . $p->{nick} . RESET(),
+        );
+
+        $p->{score} += 10;
+
+        $self->delay(3, sub {
+            $self->show_scores;
+            # bit of a delay before starting the next round
+            $self->delay(1, sub {
+                $self->next_round;
+            });
+        });
+    });
 }
 
 sub wait_said {
@@ -620,6 +703,8 @@ sub start_game {
             min_large => 0,
             max_large => 4,
             numbers_time => 30, # secs
+
+            conundrum_time => 30, # secs
         },
         letters => {
             rounds => [qw(letters letters letters letters letters letters letters letters)],
@@ -631,6 +716,8 @@ sub start_game {
             min_large => 0,
             max_large => 4,
             numbers_time => 30, # secs
+
+            conundrum_time => 30, # secs
         },
         numbers => {
             rounds => [qw(numbers numbers numbers numbers numbers numbers numbers numbers)],
@@ -642,6 +729,21 @@ sub start_game {
             min_large => 0,
             max_large => 4,
             numbers_time => 30, # secs
+
+            conundrum_time => 30, # secs
+        },
+        conundrum => {
+            rounds => [qw(conundrum conundrum conundrum conundrum conundrum conundrum conundrum conundrum)],
+
+            num_letters => 9,
+            letters_time => 30, # secs
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 30, # secs
+
+            conundrum_time => 30, # secs
         },
     );
 
@@ -696,17 +798,17 @@ sub next_word_answer {
             push @winners, $p if $p->{letters_length} == $maxlen;
         }
 
+        # calculate points
+        my $points = $maxlen;
+        $points *= 2 if $maxlen == $g->{format}{num_letters};
+
         # announce winners
         # TODO: "it's a tie" if everyone scored the same
         # TODO: not a "winner" if nobody got a word
         $self->say(
             channel => $self->channel,
-            body => RESET() . "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { BOLD() . $_->{nick} . RESET() } @winners) . "!",
+            body => RESET() . "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { BOLD() . $_->{nick} . RESET() } @winners) . "! " . BOLD() . $points . RESET() . " points.",
         );
-
-        # calculate points
-        my $points = $maxlen;
-        $points *= 2 if $maxlen == $g->{format}{num_letters};
 
         # add points to all the players with the longest word
         $_->{score} += $points for @winners;
@@ -757,19 +859,19 @@ sub next_sum_answer {
             push @winners, $p if $p->{numbers_diff} == $bestdiff;
         }
 
-        # announce winners
-        # TODO: "it's a tie" if everyone scored the same
-        # TODO: not a "winner" if nobody got a word
-        $self->say(
-            channel => $self->channel,
-            body => RESET() . "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { BOLD() . $_->{nick} . RESET() } @winners) . "!",
-        );
-
         # calculate points
         my $points = 0;
         $points = 10 if $bestdiff == 0;
         $points = 7 if $bestdiff > 0 && $bestdiff <= 5;
         $points = 5 if $bestdiff > 5 && $bestdiff <= 10;
+
+        # announce winners
+        # TODO: "it's a tie" if everyone scored the same
+        # TODO: not a "winner" if nobody got a word
+        $self->say(
+            channel => $self->channel,
+            body => RESET() . "Round winner" . (@winners > 1 ? 's are ' : ' is ') . join(' and ', map { BOLD() . $_->{nick} . RESET() } @winners) . "! " . BOLD() . $points . RESET() . " points.",
+        );
 
         # add points to all the winners
         $_->{score} += $points for @winners;
@@ -1042,11 +1144,58 @@ sub begin_conundrum {
     my $g = $self->{game};
 
     my @players = @{ $g->{players} };
-    $g->{conundrum_turn}++;
-    $g->{conundrum_turn} %= @players;
     $g->{conundrum} = [ split //, $self->{words}->conundrum ];
+    $_->{has_answered_conundrum} = 0 for @players;
 
-    # TODO: ...
+    # TODO: announce "crucial" if appropriate
+    $self->say(
+        channel => $self->channel,
+        body => RESET() . BOLD() . "Countdown Conundrum." . RESET() . " Blurt out your answer in the channel once you've got it. Get ready...",
+    );
+
+    $self->delay(2, sub {
+        $self->say(
+            channel => $self->channel,
+            body => COLOUR('white', 'blue') . ' ' . join(' ', map { uc $_ } @{ $g->{conundrum} }) . ' ' . RESET(),
+        );
+
+        $self->set_state('conundrum_timer');
+    });
+}
+
+sub begin_conundrum_timer {
+    my ($self) = @_;
+    my $g = $self->{game};
+
+    my $secs = $g->{format}{conundrum_time};
+
+    $self->say(
+        channel => $self->channel,
+        body => BOLD() . "$secs" . RESET() . " seconds to solve the conundrum. First to answer gets it...",
+    );
+    # TODO: show 20s, 10s, 3,2,1 (timer)
+    $self->delay($secs, sub {
+        $self->say(
+            channel => $self->channel,
+            body => "Time's up! Nobody got the answer.",
+        );
+
+        $self->delay(1, sub {
+            my $word = $self->{words}->best_word(@{ $g->{conundrum} });
+            $self->say(
+                channel => $self->channel,
+                body => COLOUR('white', 'blue') . ' ' . join(' ', map { uc $_ } split //, $word) . ' ' . RESET(),
+            );
+
+            $self->delay(3, sub {
+                $self->show_scores;
+                # bit of a delay before starting the next round
+                $self->delay(1, sub {
+                    $self->next_round;
+                });
+            });
+        });
+    });
 }
 
 1;
