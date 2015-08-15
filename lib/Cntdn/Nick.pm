@@ -611,7 +611,7 @@ sub start_game {
     # TODO: get formats from cfg (maybe with specified format)
     my %formats = (
         default => {
-            rounds => [qw(letters letters letters numbers letters letters letters numbers)],
+            rounds => [qw(letters letters letters numbers letters letters letters numbers conundrum)],
 
             num_letters => 9,
             letters_time => 30, # secs
@@ -1035,6 +1035,18 @@ sub begin_numbers_sums {
             body => RESET() . "what is your " . BOLD() . "$p->{numbers_sum}" . RESET() . " answer? (use infix notation) " . COLOUR('white', 'blue') . ' ' . join(' ', @{ $g->{numbers} }) . ' ' . RESET(),
         );
     }
+}
+
+sub begin_conundrum {
+    my ($self) = @_;
+    my $g = $self->{game};
+
+    my @players = @{ $g->{players} };
+    $g->{conundrum_turn}++;
+    $g->{conundrum_turn} %= @players;
+    $g->{conundrum} = [ split //, $self->{words}->conundrum ];
+
+    # TODO: ...
 }
 
 1;

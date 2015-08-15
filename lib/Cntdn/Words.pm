@@ -3,6 +3,8 @@ package Cntdn::Words;
 use strict;
 use warnings;
 
+use Text::Levenshtein qw(distance);
+
 sub new {
     my ($pkg, %opts) = @_;
 
@@ -21,6 +23,9 @@ sub load {
         or die "can't read $self->{file}: $!\n";
 
     $self->{trie} = {};
+    $self->{is_word} = {};
+    $self->{have9} = {};
+    $self->{words_of_len} = {};
     while (<$fh>) {
         chomp;
         $self->add_word($_);
@@ -33,6 +38,7 @@ sub add_word {
     my ($self, $word) = @_;
     $word = lc $word;
 
+    # add word to trie:
     my $n = $self->{trie};
 
     my @chars = split //, $word;
@@ -42,6 +48,11 @@ sub add_word {
     }
 
     $n->{'$'} = 1;
+
+    # add word to conundrum data structures:
+    $self->{is_word}{$word} = 1;
+    push @{ $self->{have9}{join '', sort(split(//, $word))} }, $word if length $word == 9;;
+    push @{ $self->{words_of_len}{length $word} }, $word;
 }
 
 sub is_word {
@@ -108,6 +119,33 @@ sub best_word {
     }, @letters);
 
     return $longest;
+}
+
+sub conundrum {
+    my ($self) = @_;
+
+    while (1) {
+        my $w1 = $self->{words_of_len}{4}[rand @{ $self->{words_of_len}{4} } - 1];
+        my $w2 = $self->{words_of_len}{5}[rand @{ $self->{words_of_len}{5} } - 1];
+
+        next if substr($w1, -1, 1) eq substr($w2, 0, 1) or $self->{is_word}{"$w1$w2"} or $self->{is_word}{"$w2$w1"};
+        my $w = "$w1$w2";
+        if ($self->{have9}{join '', sort(split(//, $w))}) {
+            my @words;
+            for my $word (@{ $self->{have9}{join '', sort(split(//, $w))} }) {
+                push @words, $word if distance($word, "$w1$w2") > 4 && distance($word, "$w2$w1") > 4;
+            }
+
+            if (@words == 1) {
+                if (rand() < 0.5) {
+                    return "$w1$w2";
+                } else {
+                    return "$w2$w1";
+                }
+            }
+        }
+    }
+
 }
 
 1;

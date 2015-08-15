@@ -1,0 +1,10 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Cntdn::Words;
+
+my $w = Cntdn::Words->new(file => '/home/jes/cntdn/dictionary');
+
+print $w->conundrum, "\n";
