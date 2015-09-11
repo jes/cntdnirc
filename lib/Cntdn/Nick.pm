@@ -424,6 +424,7 @@ sub conundrum_timer_said {
     }
 
     # else, they got it right!
+    $g->{times_up} = 1;
     $self->say(
         address => 1,
         who => $args->{who},
