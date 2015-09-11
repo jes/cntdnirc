@@ -546,6 +546,8 @@ sub next_round {
         return;
     }
 
+    $g->{round}++;
+
     $self->set_state($next);
 }
 
@@ -755,6 +757,8 @@ sub start_game {
 
     $g->{format} = $formats{$format};
     $g->{format_name} = $format;
+    $g->{round} = 0;
+    $g->{nrounds} = @{ $g->{format}{rounds} };
 
     $self->set_state('join');
 
@@ -958,7 +962,7 @@ sub begin_letters {
 
     $self->say(
         channel => $self->channel,
-        body => RESET() . BOLD() . "Letters round." . RESET() . " It's " . BOLD() . "$g->{letters_picker}{nick}" . RESET() . "'s turn to pick letters.",
+        body => RESET() . BOLD() . "($g->{round}/$g->{nrounds}) Letters round." . RESET() . " It's " . BOLD() . "$g->{letters_picker}{nick}" . RESET() . "'s turn to pick letters.",
     );
 
     $self->set_state('pick_letters');
@@ -1058,7 +1062,7 @@ sub begin_numbers {
 
     $self->say(
         channel => $self->channel,
-        body => RESET() . "Numbers round. It's " . BOLD() . "$g->{numbers_picker}{nick}" . RESET() . "'s turn to pick numbers.",
+        body => BOLD() . "($g->{round}/$g->{nrounds}) Numbers round." . RESET() . " It's " . BOLD() . "$g->{numbers_picker}{nick}" . RESET() . "'s turn to pick numbers.",
     );
 
     $self->say(
@@ -1154,7 +1158,7 @@ sub begin_conundrum {
     # TODO: announce "crucial" if appropriate
     $self->say(
         channel => $self->channel,
-        body => RESET() . BOLD() . "Countdown Conundrum." . RESET() . " Blurt out your answer in the channel once you've got it. Get ready...",
+        body => RESET() . BOLD() . "($g->{round}/$g->{nrounds}) Countdown Conundrum." . RESET() . " Blurt out your answer in the channel once you've got it. Get ready...",
     );
 
     $self->delay(2, sub {
