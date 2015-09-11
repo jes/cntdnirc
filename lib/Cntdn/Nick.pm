@@ -387,6 +387,9 @@ sub conundrum_timer_said {
 
     my $word = $args->{body};
 
+    $word =~ s/\s*//g;
+    $word =~ s/[\!\?]$//;
+
     return if length $word != @{ $g->{conundrum} };
 
     if ($p->{has_answered_conundrum}) {
