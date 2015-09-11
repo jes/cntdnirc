@@ -1065,7 +1065,7 @@ sub begin_numbers {
 
     $self->say(
         channel => $self->channel,
-        body => BOLD() . "($g->{round}/$g->{nrounds}) Numbers round." . RESET() . " It's " . BOLD() . "$g->{numbers_picker}{nick}" . RESET() . "'s turn to pick numbers.",
+        body => RESET() . BOLD() . "($g->{round}/$g->{nrounds}) Numbers round." . RESET() . " It's " . BOLD() . "$g->{numbers_picker}{nick}" . RESET() . "'s turn to pick numbers.",
     );
 
     $self->say(
