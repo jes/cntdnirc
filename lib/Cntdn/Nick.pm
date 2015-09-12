@@ -1040,7 +1040,7 @@ sub begin_letters_words {
 
     $self->say(
         channel => $self->channel,
-        body => "please send your words via private message",
+        body => "Please send your words via private message",
     );
 
     for my $p (@{ $g->{players} }) {
@@ -1136,7 +1136,7 @@ sub begin_numbers_sums {
 
     $self->say(
         channel => $self->channel,
-        body => "please send your answers via private message",
+        body => "Please send your answers via private message",
     );
 
     for my $p (@{ $g->{players} }) {
