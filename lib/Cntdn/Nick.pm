@@ -267,7 +267,7 @@ sub letters_words_pm {
 
         $self->say(
             channel => $self->channel,
-            body => RESET() . "received " . BOLD() . "$args->{who}" . RESET() . "'s word",
+            body => RESET() . "Received " . BOLD() . "$args->{who}" . RESET() . "'s word",
         );
 
         $self->next_word_answer;
