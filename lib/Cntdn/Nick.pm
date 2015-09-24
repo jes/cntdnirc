@@ -758,6 +758,14 @@ sub start_game {
     my @words = split /\s+/, $args->{body};
     my $format = $words[1] || 'default';
 
+    if (!$formats{$format}) {
+        $self->say(
+            channel => $self->channel,
+            body => RESET() . "Sorry, no such format " . BOLD() . $format . RESET(),
+        );
+        return;
+    }
+
     $g->{format} = $formats{$format};
     $g->{format_name} = $format;
     $g->{round} = 0;
