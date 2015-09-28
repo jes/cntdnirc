@@ -222,6 +222,8 @@ sub letters_words_pm {
             $p->{letters_word} = '';
             $p->{need_word} = 0;
         } else {
+            $p->{tried_word} = $word;
+
             # check the word is the declared length
             if (length $word != $p->{letters_length}) {
                 $self->say(
@@ -809,7 +811,7 @@ sub next_word_answer {
             } else {
                 $self->say(
                     channel => $self->channel,
-                    body => RESET() . BOLD () . "$p->{nick}" . RESET() . " had no valid word", # TODO: (attempted "<invalid word>")
+                    body => RESET() . BOLD () . "$p->{nick}" . RESET() . " had no valid word (attempted " . BOLD() . "$p->{tried_word}" . RESET() . ")",
                 );
             }
 
@@ -1042,6 +1044,7 @@ sub begin_letters_words {
     my $g = $self->{game};
 
     $_->{need_word} = 1 for @{ $g->{players} };
+    $_->{tried_word} = '' for @{ $g->{players} };
     $g->{need_words} = @{ $g->{players} };
 
     # TODO: some sort of timeout (timer) (needs cancelling - set their word to '' )
