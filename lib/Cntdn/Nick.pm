@@ -36,6 +36,7 @@ my @small_nums = (1,1, 2,2, 3,3, 4,4, 5,5, 6,6, 7,7, 8,8, 9,9, 10,10);
 my %methods = (
     reset => \&reset_game,
     state => \&show_state,
+    check => \&check_word,
 );
 
 my %begin_state = (
@@ -940,6 +941,35 @@ sub show_state {
         who => $args->{who},
         channel => $self->channel,
         body => RESET() . "state=$g->{state}",
+    );
+}
+
+sub check_word {
+    my ($self, $args, $word) = @_;
+    my $g = $self->{game};
+
+    return if $g->{state} =~ /^letters_timer|letters_answers|letters_words$/;
+
+    my $is_word = $self->{words}->is_word($word);
+    my $could_make = $self->{words}->can_make($word, @{ $g->{letters} });
+
+    my $msg = '';
+
+    if ($is_word && $could_make) {
+        $msg = ' is a valid word, and could be made last letters round.';
+    } elsif ($is_word && !$could_make) {
+        $msg = ' is a valid word, but could not be made last letters round.';
+    } elsif (!$is_word && $could_make) {
+        $msg = ' is not a valid word, but could be made last letters round.';
+    } elsif (!$is_word && !$could_make) {
+        $msg = ' is not a valid word, and could not be made last letters round.';
+    }
+
+    $self->say(
+        address => 1,
+        who => $args->{who},
+        channel => $self->channel,
+        body => RESET() . BOLD () . $word . RESET() . $msg,
     );
 }
 
