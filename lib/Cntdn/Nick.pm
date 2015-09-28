@@ -527,6 +527,8 @@ sub reset {
 
     $self->{timer_cb} = undef;
 
+    $g->{allow_check_word} = 1;
+
     $self->set_state('wait');
 }
 
@@ -586,6 +588,9 @@ sub has_joined {
 sub pick_letter {
     my ($self, $type) = @_;
     my $g = $self->{game};
+
+    # don't allow !check after we've started picking letters
+    $g->{allow_check_word} = 0;
 
     my $l;
 
@@ -809,6 +814,9 @@ sub next_word_answer {
     $g->{need_words}--;
     return unless $g->{need_words} == 0;
 
+    # allow !check any time after we've received all the answers
+    $g->{allow_check_word} = 1;
+
     # give 3 seconds to build suspense and allow players to switch back to the channel
     $self->delay(3, sub {
         # get players ordered by score
@@ -960,10 +968,10 @@ sub check_word {
     my ($self, $args, $word) = @_;
     my $g = $self->{game};
 
-    return if $g->{state} =~ /^letters_timer|letters_answers|letters_words$/;
+    return if !$g->{allow_check_word};
 
     my $is_word = $self->{words}->is_word($word);
-    my $could_make = $self->{words}->can_make($word, @{ $g->{letters} });
+    my $could_make = $self->{words}->can_make($word, @{ $g->{last_letters} });
 
     my $msg = '';
 
@@ -1041,6 +1049,8 @@ sub begin_pick_letters {
 sub begin_letters_timer {
     my ($self) = @_;
     my $g = $self->{game};
+
+    $g->{last_letters} = $g->{letters};
 
     my $secs = $g->{format}{letters_time};
 
