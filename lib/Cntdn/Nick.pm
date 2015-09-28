@@ -150,6 +150,8 @@ sub pick_letters_said {
     return if $s =~ /[^cv]/;
 
     while ((@{ $g->{letters} } < $g->{format}{num_letters}) && $s =~ /([cv])/g) {
+        next if $1 eq 'v' && $g->{num_vowels} >= $g->{format}{max_vowels};
+        next if $1 eq 'c' && $g->{num_consonants} >= $g->{format}{max_consonants};
         $self->pick_letter($1 eq 'v' ? 'vowel' : 'consonant');
     }
 
@@ -589,9 +591,11 @@ sub pick_letter {
 
     # TODO: take @vowels/@consonants from game format
     if ($type eq 'vowel') {
+        $g->{num_vowels}++;
         $g->{vowel_stack} = [shuffle @vowels] unless @{ $g->{vowel_stack} };
         $l = shift @{ $g->{vowel_stack} };
     } else {
+        $g->{num_consonants}++;
         $g->{consonant_stack} = [shuffle @consonants] unless @{ $g->{consonant_stack} };
         $l = shift @{ $g->{consonant_stack} };
     }
@@ -709,6 +713,8 @@ sub start_game {
 
             num_letters => 9,
             letters_time => 30, # secs
+            max_consonants => 6,
+            max_vowels => 5,
 
             num_numbers => 6,
             min_large => 0,
@@ -722,6 +728,8 @@ sub start_game {
 
             num_letters => 9,
             letters_time => 30, # secs
+            max_consonants => 6,
+            max_vowels => 5,
 
             num_numbers => 6,
             min_large => 0,
@@ -735,6 +743,8 @@ sub start_game {
 
             num_letters => 9,
             letters_time => 30, # secs
+            max_consonants => 6,
+            max_vowels => 5,
 
             num_numbers => 6,
             min_large => 0,
@@ -748,6 +758,8 @@ sub start_game {
 
             num_letters => 9,
             letters_time => 30, # secs
+            max_consonants => 6,
+            max_vowels => 5,
 
             num_numbers => 6,
             min_large => 0,
@@ -1002,6 +1014,8 @@ sub begin_letters {
     $g->{letters_turn} %= @players;
     $g->{letters_picker} = $players[$g->{letters_turn}];
     $g->{letters} = [];
+    $g->{num_vowels} = 0;
+    $g->{num_consonants} = 0;
 
     $self->say(
         channel => $self->channel,
@@ -1016,7 +1030,6 @@ sub begin_pick_letters {
     my $g = $self->{game};
 
     # TODO: some sort of timeout (timer) (needs cancelling - pick random letters)
-    # TODO: maximum of 6 consonants; maximum of 5 vowels (from format)
     $self->say(
         address => 1,
         who => $g->{letters_picker}{nick},
