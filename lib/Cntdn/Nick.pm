@@ -88,6 +88,14 @@ sub init {
     return 1;
 }
 
+sub say {
+    my ($self, @args) = @_;
+
+    use Data::Dumper;
+    print STDERR "say: " . Dumper(\@args);
+    $self->SUPER::say(@args);
+}
+
 sub said {
     my ($self, $args) = @_;
     my $g = $self->{game};
@@ -110,6 +118,20 @@ sub said {
     } else {
         $pm_in_state{$state}->($self, $args) if $pm_in_state{$state};
     }
+
+    return undef;
+}
+
+sub chanpart {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    return unless $self->has_joined($args->{who});
+
+    my $p = $self->player_by_nick($args->{who});
+    $self->remove_player($p);
+
+    return undef;
 }
 
 sub tick {
@@ -589,6 +611,7 @@ sub has_joined {
 sub remove_player {
     my ($self, $p) = @_;
     my $g = $self->{game};
+    my $state = $g->{state};
 
     my $delete_idx;
     for my $i (0 .. @{ $g->{players} }-1) {
@@ -605,7 +628,7 @@ sub remove_player {
         body => RESET() . BOLD() . "$p->{nick}" . RESET() . " has left the game (now got " . BOLD() . (scalar @{ $g->{players} }) . RESET() . " players)",
     );
 
-    if (@{ $g->{players} } == 0) {
+    if (@{ $g->{players} } == 0 && $state ne 'join') {
         $self->reset;
         $self->say(
             channel => $self->channel,
@@ -616,7 +639,6 @@ sub remove_player {
 
     # hacky stuff... basically we need to handle every special case where we're waiting
     # on the player that has left
-    my $state = $g->{state};
     my @players = @{ $g->{players} };
     if ($state eq 'pick_letters' and lc $g->{letters_picker}{nick} eq lc $p->{nick}) {
         # advance letters_picker to next one
