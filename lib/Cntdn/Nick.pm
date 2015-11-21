@@ -146,6 +146,18 @@ sub kicked {
     return undef;
 }
 
+sub userquit {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    return unless $self->has_joined($args->{who});
+
+    my $p = $self->player_by_nick($args->{who});
+    $self->remove_player($p);
+
+    return undef;
+}
+
 sub tick {
     my ($self) = @_;
 
