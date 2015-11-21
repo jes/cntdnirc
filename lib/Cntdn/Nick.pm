@@ -37,6 +37,7 @@ my %methods = (
     reset => \&reset_game,
     state => \&show_state,
     check => \&check_word,
+    leave => \&leave_game,
 );
 
 my %begin_state = (
@@ -585,6 +586,72 @@ sub has_joined {
     return 0;
 }
 
+sub remove_player {
+    my ($self, $p) = @_;
+    my $g = $self->{game};
+
+    my $delete_idx;
+    for my $i (0 .. @{ $g->{players} }-1) {
+        if (lc $g->{players}[$i]{nick} eq lc $p->{nick}) {
+            $delete_idx = $i;
+            last;
+        }
+    }
+
+    splice @{ $g->{players} }, $delete_idx, 1;
+
+    $self->say(
+        channel => $self->channel,
+        body => RESET() . BOLD() . "$p->{nick}" . RESET() . " has left the game (now got " . BOLD() . (scalar @{ $g->{players} }) . RESET() . " players)",
+    );
+
+    if (@{ $g->{players} } == 0) {
+        $self->reset;
+        $self->say(
+            channel => $self->channel,
+            body => INVERSE() . BOLD() . 'game over' . RESET(),
+        );
+        return;
+    }
+
+    # hacky stuff... basically we need to handle every special case where we're waiting
+    # on the player that has left
+    my $state = $g->{state};
+    my @players = @{ $g->{players} };
+    if ($state eq 'pick_letters' and lc $g->{letters_picker}{nick} eq lc $p->{nick}) {
+        # advance letters_picker to next one
+        $g->{letters_turn} %= @players;
+        $g->{letters_picker} = $players[$g->{letters_turn}];
+        $self->set_state('pick_letters');
+    } elsif ($state eq 'letters_answers' and lc $g->{letters_answerer}{nick} eq lc $p->{nick}) {
+        # skip to next answerer
+        $g->{letters_answers_turn}--;
+        if ($g->{letters_answers_done} == @{ $g->{players} }) {
+            $self->set_state('letters_words');
+        } else {
+            $self->set_state('letters_answers');
+        }
+    } elsif ($state eq 'letters_words') {
+        # skip to next answerer
+        $self->next_word_answer if $p->{need_word};
+    } elsif ($state eq 'numbers' and lc $g->{numbers_picker}{nick} eq lc $p->{nick}) {
+        # advance numbers picker to next one
+        $g->{numbers_turn}--;
+        $self->set_state('numbers');
+    } elsif ($state eq 'numbers_answers' and lc $g->{numbers_answerer}{nick} eq lc $p->{nick}) {
+        # skip to next answerer
+        $g->{numbers_answers_turn}--;
+        if ($g->{numbers_answers_done} == @{ $g->{players} }) {
+            $self->set_state('numbers_sums');
+        } else {
+            $self->set_state('numbers_answers');
+        }
+    } elsif ($state eq 'numbers_sums') {
+        # skip to next answerer
+        $self->next_sum_answer if $p->{need_sum};
+    }
+}
+
 sub pick_letter {
     my ($self, $type) = @_;
     my $g = $self->{game};
@@ -717,61 +784,61 @@ sub start_game {
             rounds => [qw(letters letters letters numbers letters letters letters numbers conundrum)],
 
             num_letters => 9,
-            letters_time => 30, # secs
+            letters_time => 3, # secs
             max_consonants => 6,
             max_vowels => 5,
 
             num_numbers => 6,
             min_large => 0,
             max_large => 4,
-            numbers_time => 30, # secs
+            numbers_time => 3, # secs
 
-            conundrum_time => 30, # secs
+            conundrum_time => 3, # secs
         },
         letters => {
             rounds => [qw(letters letters letters letters letters letters letters letters)],
 
             num_letters => 9,
-            letters_time => 30, # secs
+            letters_time => 3, # secs
             max_consonants => 6,
             max_vowels => 5,
 
             num_numbers => 6,
             min_large => 0,
             max_large => 4,
-            numbers_time => 30, # secs
+            numbers_time => 3, # secs
 
-            conundrum_time => 30, # secs
+            conundrum_time => 3, # secs
         },
         numbers => {
             rounds => [qw(numbers numbers numbers numbers numbers numbers numbers numbers)],
 
             num_letters => 9,
-            letters_time => 30, # secs
+            letters_time => 3, # secs
             max_consonants => 6,
             max_vowels => 5,
 
             num_numbers => 6,
             min_large => 0,
             max_large => 4,
-            numbers_time => 30, # secs
+            numbers_time => 3, # secs
 
-            conundrum_time => 30, # secs
+            conundrum_time => 3, # secs
         },
         conundrum => {
             rounds => [qw(conundrum conundrum conundrum conundrum conundrum conundrum conundrum conundrum)],
 
             num_letters => 9,
-            letters_time => 30, # secs
+            letters_time => 3, # secs
             max_consonants => 6,
             max_vowels => 5,
 
             num_numbers => 6,
             min_large => 0,
             max_large => 4,
-            numbers_time => 30, # secs
+            numbers_time => 3, # secs
 
-            conundrum_time => 30, # secs
+            conundrum_time => 3, # secs
         },
     );
 
@@ -993,6 +1060,18 @@ sub check_word {
     );
 }
 
+sub leave_game {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    return if $g->{state} eq 'wait';
+    return unless $self->has_joined($args->{who});
+
+    my $p = $self->player_by_nick($args->{who});
+
+    $self->remove_player($p);
+}
+
 ### state entry:
 
 sub set_state {
@@ -1009,7 +1088,7 @@ sub begin_join {
 
     $self->say(
         channel => $self->channel,
-        body => "Starting a game with format " . BOLD() . "$g->{format_name}" . RESET() . ", join with " . BOLD() . "!join" . RESET() . ", begin with " . BOLD() . "!go" . RESET(),
+        body => "Starting a game with format " . BOLD() . "$g->{format_name}" . RESET() . ", join with " . BOLD() . "!join" . RESET() . ", leave with " . BOLD() . "!leave" . RESET() . ", begin with " . BOLD() . "!go" . RESET(),
     );
 }
 
