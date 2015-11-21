@@ -134,6 +134,18 @@ sub chanpart {
     return undef;
 }
 
+sub kicked {
+    my ($self, $args) = @_;
+    my $g = $self->{game};
+
+    return unless $self->has_joined($args->{kicked});
+
+    my $p = $self->player_by_nick($args->{kicked});
+    $self->remove_player($p);
+
+    return undef;
+}
+
 sub tick {
     my ($self) = @_;
 
