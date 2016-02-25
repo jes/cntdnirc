@@ -754,7 +754,7 @@ sub pick_number {
 
             $self->say(
                 channel => $self->channel,
-                body => "The target number is " . COLOUR('green', 'black') . "$g->{numbers_target}" . RESET(),
+                body => "The target number is " . COLOUR('black', 'red ') . " $g->{numbers_target} " . RESET(),
             );
 
             $self->delay(1, sub {
