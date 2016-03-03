@@ -130,18 +130,17 @@ sub conundrum {
 
         next if substr($w1, -1, 1) eq substr($w2, 0, 1) or $self->{is_word}{"$w1$w2"} or $self->{is_word}{"$w2$w1"};
         my $w = "$w1$w2";
-        if ($self->{have9}{join '', sort(split(//, $w))}) {
+        my @possible_nines = @{ ($self->{have9}{join '', sort(split(//, $w))})||[] };
+        if (@possible_nines == 1) {
             my @words;
-            for my $word (@{ $self->{have9}{join '', sort(split(//, $w))} }) {
+            for my $word (@possible_nines) {
                 push @words, $word if distance($word, "$w1$w2") > 4 && distance($word, "$w2$w1") > 4;
             }
 
-            if (@words == 1) {
-                if (rand() < 0.5) {
-                    return "$w1$w2";
-                } else {
-                    return "$w2$w1";
-                }
+            if (rand() < 0.5) {
+                return "$w1$w2";
+            } else {
+                return "$w2$w1";
             }
         }
     }
