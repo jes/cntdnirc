@@ -350,6 +350,7 @@ sub numbers_said {
                 body => RESET() . "must have at most " . BOLD() . "$g->{format}{max_large}" . RESET() . " large; how many large? [$g->{format}{min_large}-$g->{format}{max_large}]",
             );
         } else {
+            $g->{large_stack} = [shuffle @large_nums];
             $self->pick_numbers($numlarge);
         }
     }
