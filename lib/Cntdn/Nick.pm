@@ -842,7 +842,7 @@ sub start_game {
 
             conundrum_time => 30, # secs
         },
-        15rounds => {
+        '15rounds' => {
             rounds => [qw(letters letters numbers letters letters numbers letters letters numbers letters letters letters letters numbers conundrum)],
 
             num_letters => 9,
