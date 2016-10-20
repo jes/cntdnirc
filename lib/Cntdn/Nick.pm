@@ -842,6 +842,21 @@ sub start_game {
 
             conundrum_time => 30, # secs
         },
+        15rounds => {
+            rounds => [qw(letters letters numbers letters letters numbers letters letters numbers letters letters letters letters numbers conundrum)],
+
+            num_letters => 9,
+            letters_time => 30, # secs
+            max_consonants => 6,
+            max_vowels => 5,
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 30, # secs
+
+            conundrum_time => 30, # secs
+        },
         letters => {
             rounds => [qw(letters letters letters letters letters letters letters letters)],
 
