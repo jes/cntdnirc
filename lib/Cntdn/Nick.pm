@@ -735,8 +735,8 @@ sub allow_letter {
     my @got = grep { $_ eq $l } $g->{letters};
 
     return 1 if !@got;
-    return (rand > 0.5) if @got == 1;
-    return (rand > 0.1) if @got == 2;
+    return (rand < 0.5) if @got == 1;
+    return (rand < 0.1) if @got == 2;
     return 0;
 }
 
