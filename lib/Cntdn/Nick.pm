@@ -11,8 +11,8 @@ use List::Util qw(shuffle);
 
 use base qw(Cntdn::Base);
 
-my @vowels = split //, 'AAAAAAAAAAAAAAAAAAAEEEEEEEEEEEEEEEEEEEEEEEIIIIIIIIIIIIIIIIOOOOOOOOOOOOOOOUUUU';
-my @consonants = split //, 'BBCCCCDDDDDDDFFGGGGHJKLLLLLMMMMMMMNNNNNNNNNPPPQRRRRRRRRRRRRSSSSSSSSSSSSTTTTTTTTTTTTVWXYZ';
+my @vowels = split //, 'AAAAAAAAAAAAAAAAEEEEEEEEEEEEEEEEEEEEEEIIIIIIIIIIIIIIOOOOOOOOOOOOOOUUUUU';
+my @consonants = split //, 'BBCCCCDDDDDDFFGGGHHJKLLLLLLMMMMMNNNNNNNNNPPPRRRRRRRRRRSSSSSSSSSSTTTTTTTTTTVWXYZ';
 
 my @large_nums = (25, 50, 75, 100);
 my @small_nums = (1,1, 2,2, 3,3, 4,4, 5,5, 6,6, 7,7, 8,8, 9,9, 10,10);
@@ -303,7 +303,7 @@ sub letters_words_pm {
                     address => 0,
                     who => $args->{who},
                     channel => 'msg',
-                    body => RESET() . "that's not a legit word, sorry",
+                    body => RESET() . "that's not a valid word, sorry",
                 );
 
                 $p->{letters_length} = 0;
@@ -840,7 +840,7 @@ sub start_game {
             max_large => 4,
             numbers_time => 30, # secs
 
-            conundrum_time => 30, # secs
+            conundrum_time => 32, # secs
         },
         '15rounds' => {
             rounds => [qw(letters letters numbers letters letters numbers letters letters numbers letters letters letters letters numbers conundrum)],
@@ -855,7 +855,7 @@ sub start_game {
             max_large => 4,
             numbers_time => 30, # secs
 
-            conundrum_time => 30, # secs
+            conundrum_time => 32, # secs
         },
         letters => {
             rounds => [qw(letters letters letters letters letters letters letters letters)],
@@ -870,7 +870,7 @@ sub start_game {
             max_large => 4,
             numbers_time => 30, # secs
 
-            conundrum_time => 30, # secs
+            conundrum_time => 32, # secs
         },
         numbers => {
             rounds => [qw(numbers numbers numbers numbers numbers numbers numbers numbers)],
@@ -885,7 +885,7 @@ sub start_game {
             max_large => 4,
             numbers_time => 30, # secs
 
-            conundrum_time => 30, # secs
+            conundrum_time => 32, # secs
         },
         conundrum => {
             rounds => [qw(conundrum conundrum conundrum conundrum conundrum conundrum conundrum conundrum)],
@@ -900,7 +900,7 @@ sub start_game {
             max_large => 4,
             numbers_time => 30, # secs
 
-            conundrum_time => 30, # secs
+            conundrum_time => 32, # secs
         },
     );
 
