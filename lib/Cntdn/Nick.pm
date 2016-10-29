@@ -902,6 +902,157 @@ sub start_game {
 
             conundrum_time => 32, # secs
         },
+
+        # HC2's formats:
+        'old15rounds' => {
+            rounds => [qw(letters letters letters letters numbers letters letters letters letters numbers letters letters letters numbers conundrum)],
+
+            num_letters => 9,
+            letters_time => 30, # secs
+            max_consonants => 6,
+            max_vowels => 5,
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 30, # secs
+
+            conundrum_time => 32, # secs
+        },
+        'new15rounds' => {
+            rounds => [qw(letters letters numbers letters letters numbers letters letters numbers letters letters letters letters numbers conundrum)],
+
+            num_letters => 9,
+            letters_time => 30, # secs
+            max_consonants => 6,
+            max_vowels => 5,
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 30, # secs
+
+            conundrum_time => 32, # secs
+        },
+        lettersattack => {
+            rounds => [qw(letters)x20],
+
+            num_letters => 9,
+            letters_time => 30, # secs
+            max_consonants => 6,
+            max_vowels => 5,
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 30, # secs
+
+            conundrum_time => 32, # secs
+        },
+        numbersattack => {
+            rounds => [qw(numbers)x20],
+
+            num_letters => 9,
+            letters_time => 30, # secs
+            max_consonants => 6,
+            max_vowels => 5,
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 30, # secs
+
+            conundrum_time => 32, # secs
+        },
+        conundrumattack => {
+            rounds => [qw(conundrum)x20],
+
+            num_letters => 9,
+            letters_time => 30, # secs
+            max_consonants => 6,
+            max_vowels => 5,
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 30, # secs
+
+            conundrum_time => 32, # secs
+        },
+        instant9 => {
+            rounds => [qw(letters letters letters numbers letters letters letters numbers conundrum)],
+
+            num_letters => 9,
+            letters_time => 10, # secs
+            max_consonants => 6,
+            max_vowels => 5,
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 10, # secs
+
+            conundrum_time => 12, # secs
+        },
+        instant15 => {
+            rounds => [qw(letters letters letters letters numbers letters letters letters letters numbers letters letters letters numbers conundrum)],
+
+            num_letters => 9,
+            letters_time => 10, # secs
+            max_consonants => 6,
+            max_vowels => 5,
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 10, # secs
+
+            conundrum_time => 12, # secs
+        },
+        rapid9 => {
+            rounds => [qw(letters letters letters numbers letters letters letters numbers conundrum)],
+
+            num_letters => 9,
+            letters_time => 3, # secs
+            max_consonants => 6,
+            max_vowels => 5,
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 3, # secs
+
+            conundrum_time => 5, # secs
+        },
+        rapid15 => {
+            rounds => [qw(letters letters letters letters numbers letters letters letters letters numbers letters letters letters numbers conundrum)],
+
+            num_letters => 9,
+            letters_time => 3, # secs
+            max_consonants => 6,
+            max_vowels => 5,
+
+            num_numbers => 6,
+            min_large => 0,
+            max_large => 4,
+            numbers_time => 3, # secs
+
+            conundrum_time => 5, # secs
+        },
+        '14roundsfinal' => {
+            rounds => [qw(letters letters numbers letters letters numbers conundrum letters letters numbers letters letters numbers conundrum)],
+            num_letters => 9, 
+            letters_time => 30, # secs 
+            max_consonants => 6, 
+            max_vowels => 5, 
+
+            num_numbers => 6, 
+            min_large => 0, 
+            max_large => 4, 
+            numbers_time => 30, # secs 
+
+            conundrum_time => 32, # secs
+        },
     );
 
     my @words = split /\s+/, $args->{body};
