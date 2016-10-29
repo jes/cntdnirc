@@ -709,17 +709,35 @@ sub pick_letter {
     my $l;
 
     # TODO: take @vowels/@consonants from game format
+    do {
+        if ($type eq 'vowel') {
+            $g->{vowel_stack} = [shuffle @vowels] unless @{ $g->{vowel_stack} };
+            $l = shift @{ $g->{vowel_stack} };
+        } else {
+            $g->{consonant_stack} = [shuffle @consonants] unless @{ $g->{consonant_stack} };
+            $l = shift @{ $g->{consonant_stack} };
+        }
+    } while (!$self->allow_letter($l));
+
     if ($type eq 'vowel') {
         $g->{num_vowels}++;
-        $g->{vowel_stack} = [shuffle @vowels] unless @{ $g->{vowel_stack} };
-        $l = shift @{ $g->{vowel_stack} };
     } else {
         $g->{num_consonants}++;
-        $g->{consonant_stack} = [shuffle @consonants] unless @{ $g->{consonant_stack} };
-        $l = shift @{ $g->{consonant_stack} };
     }
 
     push @{ $g->{letters} }, $l;
+}
+
+sub allow_letter {
+    my ($self, $l) = @_;
+    my $g = $self->{game};
+
+    my @got = grep { $_ eq $l } $g->{letters};
+
+    return 1 if !@got;
+    return (rand > 0.5) if @got == 1;
+    return (rand > 0.1) if @got == 2;
+    return 0;
 }
 
 sub pick_number {
