@@ -732,7 +732,7 @@ sub allow_letter {
     my ($self, $l) = @_;
     my $g = $self->{game};
 
-    my @got = grep { $_ eq $l } $g->{letters};
+    my @got = grep { $_ eq $l } @{ $g->{letters} };
 
     return 1 if !@got;
     return (rand() < 0.5) if @got == 1;
