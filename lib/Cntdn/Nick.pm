@@ -204,7 +204,7 @@ sub pick_letters_said {
 
     $self->say(
         channel => $self->channel,
-        body => COLOUR('white', 'blue') . ' ' .join(' ', map { uc $_ } @{ $g->{letters} }, (' ')x($g->{format}{num_letters} - @{ $g->{letters} })) . ' ' . RESET(),
+        body => BOLD() . COLOUR('lightgreen', 'red') . ' ' .join(' ', map { uc $_ } @{ $g->{letters} }, (' ')x($g->{format}{num_letters} - @{ $g->{letters} })) . ' ' . RESET(),
     );
 
     if (@{ $g->{letters} } == $g->{format}{num_letters}) {
@@ -601,6 +601,10 @@ sub next_round {
             channel => $self->channel,
             body => INVERSE() . BOLD() . 'game over' . RESET(),
         );
+        $self->say(
+            channel => $self->channel,
+            body => BOLD() . COLOUR('lightgreen', 'red') . 'Merry Christmas'. RESET(),
+        );
         return;
     }
 
@@ -658,6 +662,10 @@ sub remove_player {
         $self->say(
             channel => $self->channel,
             body => INVERSE() . BOLD() . 'game over' . RESET(),
+        );
+        $self->say(
+            channel => $self->channel,
+            body => BOLD() . COLOUR('lightgreen', 'red') . 'Merry Christmas'. RESET(),
         );
         return;
     }
